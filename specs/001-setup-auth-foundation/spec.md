@@ -27,18 +27,9 @@
    - When I click logout
    - Then my session is cleared and I'm redirected to login
 
-**Requirements:**
-- FR-001: System MUST use Better Auth for authentication
-- FR-002: System MUST generate JWT tokens with 7-day expiration
-- FR-003: System MUST store user credentials securely (bcrypt hashing)
-- FR-004: System MUST validate email format during registration
-- FR-005: System MUST prevent duplicate email registrations
+**Requirements:** See "Requirements" section below for complete functional and non-functional requirements.
 
-**Success Criteria:**
-- SC-001: Users can register in under 30 seconds
-- SC-002: Login response time < 500ms
-- SC-003: JWT tokens include user_id claim
-- SC-004: All passwords hashed with bcrypt before storage
+**Success Criteria:** See "Success Criteria" section below for complete measurable outcomes.
 
 **Key Entities:**
 - User: id, email, password_hash, name, created_at, updated_at
@@ -67,7 +58,7 @@ A new user discovers the Todo application and needs to create an account to star
 
 **Acceptance Scenarios**:
 
-1. **Given** I am on the registration page, **When** I enter a valid email (user@example.com), name (John Doe), and password (min 8 chars), **Then** my account is created, password is hashed using bcrypt, and I receive a JWT token with user_id claim valid for 7 days
+1. **Given** I am on the registration page, **When** I enter a valid email (user@example.com), name (John Doe), and password (min 8 chars), **Then** my account is created, password is hashed using argon2id, and I receive a JWT token with user_id claim valid for 7 days
 2. **Given** I am on the registration page, **When** I enter an email that already exists in the system, **Then** I receive an error message "Email already registered" and registration fails
 3. **Given** I am on the registration page, **When** I enter an invalid email format (e.g., "notanemail"), **Then** I receive an error message "Invalid email format" and registration fails
 4. **Given** I am on the registration page, **When** I leave required fields empty (email, name, or password), **Then** I receive an error message indicating which fields are required
@@ -122,9 +113,9 @@ A logged-in user wants to securely end their session, either because they're on 
 
 ### Functional Requirements
 
-- **FR-001**: System MUST use Better Auth library for authentication management
+- **FR-001**: System MUST use Better Auth library for authentication management (frontend token issuance; backend validates via JWKS)
 - **FR-002**: System MUST generate JWT tokens with 7-day expiration period upon successful authentication
-- **FR-003**: System MUST store user credentials securely using bcrypt hashing algorithm with appropriate salt rounds
+- **FR-003**: System MUST store user credentials securely using argon2 hashing algorithm (via pwdlib library) with appropriate salt rounds
 - **FR-004**: System MUST validate email format during registration using standard email regex pattern
 - **FR-005**: System MUST prevent duplicate email registrations by enforcing unique constraint on email field
 - **FR-006**: System MUST require all three fields (email, password, name) during registration
@@ -132,7 +123,7 @@ A logged-in user wants to securely end their session, either because they're on 
 - **FR-008**: System MUST include user_id claim in JWT token payload for user identification
 - **FR-009**: System MUST provide logout functionality that clears client-side authentication state
 - **FR-010**: System MUST enforce minimum password length of 8 characters
-- **FR-011**: System MUST sanitize all user inputs to prevent SQL injection and XSS attacks
+- **FR-011**: System MUST sanitize all user inputs to prevent SQL injection (via SQLModel parameterized queries) and XSS attacks (via Content-Security-Policy headers)
 - **FR-012**: System MUST create database records with created_at and updated_at timestamps
 - **FR-013**: System MUST expose RESTful authentication endpoints following the pattern `/api/auth/{action}` where action is register, login, or logout
 
@@ -140,7 +131,7 @@ A logged-in user wants to securely end their session, either because they're on 
 
 - **User**: Represents an individual user account in the system
   - Attributes: unique identifier, email address (unique), hashed password, full name, account creation timestamp, last update timestamp
-  - Business Rules: Email must be unique across all users, password must be stored as bcrypt hash (never plain text), all timestamps use UTC timezone
+  - Business Rules: Email must be unique across all users, password must be stored as argon2id hash (never plain text), all timestamps use UTC timezone
 
 ## Success Criteria *(mandatory)*
 
@@ -149,7 +140,7 @@ A logged-in user wants to securely end their session, either because they're on 
 - **SC-001**: Users can complete the registration process (from landing on registration page to receiving authentication token) in under 30 seconds
 - **SC-002**: Login authentication responds to user credentials and returns result in under 500 milliseconds under normal load conditions
 - **SC-003**: JWT tokens contain user_id claim that correctly identifies the authenticated user for all subsequent requests
-- **SC-004**: All user passwords are hashed using bcrypt before storage with no plain-text passwords existing in the database
+- **SC-004**: All user passwords are hashed using argon2id (via pwdlib) before storage with no plain-text passwords existing in the database
 - **SC-005**: Registration form validation provides immediate feedback (within 100ms) for invalid email formats before submission
 - **SC-006**: Duplicate email registration attempts are rejected with clear error messaging within 500ms
 - **SC-007**: Users successfully log out and are redirected to login page within 2 seconds of clicking logout
@@ -159,11 +150,11 @@ A logged-in user wants to securely end their session, either because they're on 
 
 - **Database Setup**: Neon Serverless PostgreSQL database is already provisioned and connection credentials are available
 - **Password Requirements**: Minimum 8 characters is sufficient for this phase; additional complexity requirements (uppercase, numbers, symbols) will be added in future iterations if needed
-- **Session Management**: Client-side JWT storage in localStorage/sessionStorage is acceptable for Phase II; HTTP-only cookies may be considered in later phases
+- **Session Management**: HTTP-only cookies used for JWT storage (Better Auth default); provides XSS protection from Phase II onwards
 - **Token Refresh**: 7-day token expiration is sufficient without refresh token mechanism for Phase II
 - **User Data**: Only basic user information (email, name) is required; additional profile fields will be added in future features
 - **Email Verification**: Email addresses are accepted without verification in Phase II; email confirmation flow is explicitly out of scope
-- **Rate Limiting**: Basic authentication endpoints do not require rate limiting in Phase II; this will be added in later phases if needed
+- **Rate Limiting**: Basic rate limiting implemented on authentication endpoints (login/register) using slowapi library to prevent brute force attacks
 - **Monorepo Structure**: Frontend and backend directories already exist or will be created as part of initial project setup
 - **CORS Configuration**: Frontend and backend communication is configured to allow cross-origin requests during development
 
@@ -183,3 +174,6 @@ The following functionality is explicitly NOT included in this feature and will 
 - Concurrent session management
 - User roles and permissions system
 - Task management features (covered in separate specs)
+- JWT token refresh mechanism (Phase V)
+- Advanced brute force protection beyond basic rate limiting (Phase V)
+- Multi-tab logout synchronization (Phase V)

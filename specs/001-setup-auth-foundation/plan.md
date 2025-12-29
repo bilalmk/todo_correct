@@ -12,9 +12,10 @@ Establish foundational project structure and authentication system for multi-use
 ## Technical Context
 
 **Language/Version**: Python 3.11+ (backend), TypeScript/Next.js 16+ (frontend)
+**Package Manager**: UV
 **Primary Dependencies**:
 - Frontend: Better Auth (TypeScript authentication library), Next.js 16+ App Router, React
-- Backend: FastAPI, PyJWT (JWT validation), SQLModel, python-jwcrypto (JWKS client)
+- Backend: FastAPI, PyJWT (JWT HS256 validation), SQLModel, pwdlib (argon2 hashing), slowapi (rate limiting)
 **Storage**: Neon Serverless PostgreSQL (shared database for Better Auth sessions and FastAPI data)
 **Testing**: pytest (backend), Jest (frontend)
 **Target Platform**: Linux server (backend), Web browsers (frontend), WSL 2 for Windows development
@@ -24,7 +25,7 @@ Establish foundational project structure and authentication system for multi-use
 - Better Auth handles authentication (email/password credentials provider)
 - HTTP-only cookies for session storage (Better Auth default)
 - JWT tokens with 7-day expiration
-- FastAPI validates tokens via Better Auth JWKS endpoint
+- FastAPI validates tokens using shared secret (BETTER_AUTH_SECRET)
 - Stateless backend (no session storage on FastAPI)
 **Scale/Scope**: Multi-user system (target: 100 concurrent users per instance), Better Auth routes (`/api/auth/*`), FastAPI business logic (`/api/v1/*`), Phase II hackathon deliverable
 
@@ -64,7 +65,7 @@ Establish foundational project structure and authentication system for multi-use
 - ✅ **Documentation**: OpenAPI auto-generated, README setup instructions, architecture diagrams in this plan
 
 ### Security Requirements
-- ✅ **Authentication & Authorization**: JWT tokens (7-day expiration), bcrypt password hashing
+- ✅ **Authentication & Authorization**: JWT tokens (7-day expiration), argon2id password hashing via pwdlib
 - ✅ **Data Protection**: `.env` in `.gitignore`, no secrets in code, TLS for production
 - ✅ **Input Validation**: Pydantic schemas for all API inputs, email format validation, SQL injection prevention via ORM
 - ✅ **API Security**: HTTPS required, authentication on protected endpoints, CORS configuration, security headers
@@ -193,7 +194,7 @@ No violations. This feature fully complies with all constitutional principles.
 
 **Phase 0: Research (✅ Complete)**
 - Investigated Better Auth, JWT libraries, Next.js patterns, and password hashing
-- **Decision**: Custom JWT implementation (PyJWT + pwdlib) over Better Auth/NextAuth
+- **Decision**: Better Auth for frontend authentication; FastAPI validates Better Auth JWT tokens via shared secret (HS256)
 - **Output**: [`research.md`](./research.md) with comprehensive findings and rationale
 
 **Phase 1: Design (✅ Complete)**
@@ -213,31 +214,37 @@ No violations. This feature fully complies with all constitutional principles.
 
 ### Key Architecture Decisions
 
-#### 1. Better Auth for Frontend (vs Custom JWT)
-**Decision**: Use Better Auth library on Next.js frontend
+#### 1. Better Auth for Full Authentication System (Hackathon Requirement)
+**Decision**: Use Better Auth library for complete authentication system (frontend + token issuance)
 **Rationale**:
+- **Hackathon Mandate**: CLAUDE.md requires "Better Auth with JWT" - non-negotiable
 - Built-in authentication UI components and flows
 - TypeScript-first with excellent type safety
 - Handles all security best practices (CSRF, XSS prevention, HTTP-only cookies)
 - Automatic session management and token refresh
 - Works seamlessly with Next.js App Router
-- Provides JWKS endpoint for FastAPI backend validation
-- Reduces frontend development time
+- Issues JWT tokens with HS256 (symmetric signature) for FastAPI validation
+- Reduces frontend development time and ensures hackathon compliance
 
 **Trade-offs Accepted**:
 - Dependency on Better Auth library (vs full control with custom implementation)
+- Shared secret (BETTER_AUTH_SECRET) between frontend and backend for JWT validation
 - Shared database required for session storage (acceptable - using same Neon PostgreSQL)
 
-#### 2. JWT Validation via JWKS (FastAPI Backend)
-**Decision**: FastAPI validates Better Auth JWT tokens using JWKS public keys
+#### 2. JWT Validation via Shared Secret (FastAPI Backend)
+**Decision**: FastAPI validates Better Auth JWT tokens using shared secret (HS256 symmetric signature)
 **Rationale**:
-- Stateless validation (no shared session database lookups)
-- Better Auth provides JWKS endpoint with public keys
-- PyJWT library supports RS256/ES256 signature verification
-- Caching of JWKS keys reduces latency (1-hour TTL)
-- Meets constitutional requirement for stateless backend services
+- **Architecture Alignment**: Better Auth issues JWT tokens signed with HS256 algorithm using BETTER_AUTH_SECRET
+- **Stateless Validation**: Backend verifies JWT signature using same shared secret (no database lookups)
+- **Simple & Secure**: PyJWT library supports HS256 verification with minimal configuration
+- **Constitutional Compliance**: Meets stateless backend service requirement
+- **Performance**: Signature verification is purely computational (no external API calls)
 
-**Implementation Detail**: Cache JWKS public keys with TTL to minimize requests to Better Auth endpoint
+**Implementation Detail**:
+- Both frontend (Better Auth) and backend (FastAPI) share BETTER_AUTH_SECRET environment variable
+- Backend extracts token from Authorization header, verifies signature with PyJWT
+- Decoded token payload contains user_id (sub claim) and email for user identification
+- Token validation happens on every protected endpoint via FastAPI dependency injection
 
 #### 3. HTTP-only Cookies for Session Storage
 **Decision**: HTTP-only cookies (Better Auth default) for session storage
@@ -271,7 +278,6 @@ No violations. This feature fully complies with all constitutional principles.
 | `/api/auth/sign-in/email` | POST | No | Login with email/password (Better Auth) |
 | `/api/auth/sign-out` | POST | Yes | Logout and clear session (Better Auth) |
 | `/api/auth/session` | GET | Yes | Get current session (Better Auth) |
-| `/api/auth/jwks` | GET | No | JWKS endpoint for public keys (Better Auth) |
 
 **Backend (FastAPI - Business Logic API)**:
 | Endpoint | Method | Auth Required | Purpose |
@@ -285,7 +291,7 @@ No violations. This feature fully complies with all constitutional principles.
 **Users Table**:
 - `id` (UUID, PK) - Unique user identifier
 - `email` (String, UNIQUE) - User's email (login identifier)
-- `password_hash` (String) - Bcrypt/argon2 hash of password
+- `password_hash` (String) - argon2id hash of password
 - `name` (String) - User's display name
 - `created_at` (DateTime) - Account creation timestamp (UTC)
 - `updated_at` (DateTime) - Last modification timestamp (UTC)
@@ -298,11 +304,11 @@ No violations. This feature fully complies with all constitutional principles.
 ### Security Implementation Checklist
 
 - ✅ Better Auth secret stored in environment variable (never committed)
-- ✅ Better Auth handles password hashing (modern algorithms)
+- ✅ Password hashing with argon2id via pwdlib (modern algorithm, PHC 2015 winner, NOT bcrypt)
 - ✅ HTTP-only cookies prevent XSS attacks (Better Auth default)
 - ✅ CSRF protection built-in (Better Auth)
 - ✅ 7-day JWT token expiration enforced (Better Auth)
-- ✅ JWT signature validation via JWKS public keys (FastAPI)
+- ✅ JWT signature validation via shared secret HS256 (FastAPI)
 - ✅ Input validation with Pydantic schemas (FastAPI backend)
 - ✅ SQL injection prevention via SQLModel ORM parameterized queries
 - ✅ Consistent error messages (prevent user enumeration - Better Auth)
@@ -358,7 +364,7 @@ No violations. This feature fully complies with all constitutional principles.
 
 **Environment Variables Required**:
 - Frontend: `DATABASE_URL` (Neon PostgreSQL), `BETTER_AUTH_SECRET`, `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_BACKEND_API_URL`
-- Backend: `DATABASE_URL` (same as frontend), `BETTER_AUTH_JWKS_URL`, `CORS_ORIGINS`
+- Backend: `DATABASE_URL` (same as frontend), `BETTER_AUTH_SECRET` (shared with frontend for JWT HS256 validation), `CORS_ORIGINS`
 
 ### Future Extensions (Planned)
 

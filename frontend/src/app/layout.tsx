@@ -1,0 +1,27 @@
+/**
+ * Root layout for Next.js App Router with Better Auth session provider
+ */
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
+
+const inter = Inter({ subsets: ["latin"] });
+
+export const metadata: Metadata = {
+  title: "Todo Evolution - Hackathon",
+  description: "Multi-user todo application with AI chatbot",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body className={inter.className}>
+        {children}
+      </body>
+    </html>
+  );
+}
