@@ -64,3 +64,32 @@ async def create_db_and_tables() -> None:
 async def close_db_connection() -> None:
     """Close database connection pool."""
     await engine.dispose()
+
+
+async def check_database_health() -> bool:
+    """
+    Check database connectivity and schema health.
+
+    Returns:
+        bool: True if database is healthy, False otherwise
+    """
+    try:
+        async with async_session_maker() as session:
+            # Verify connection with simple query
+            result = await session.execute("SELECT 1")
+            result.scalar()
+
+            # Verify critical tables exist (will be populated after migrations)
+            from sqlalchemy import inspect
+            async with engine.connect() as conn:
+                def check_tables(connection):
+                    inspector = inspect(connection)
+                    tables = inspector.get_table_names()
+                    required_tables = {'users', 'tasks', 'tags', 'task_tags', 'notifications'}
+                    return required_tables.issubset(set(tables))
+
+                tables_exist = await conn.run_sync(check_tables)
+                return tables_exist
+    except Exception as e:
+        print(f"Database health check failed: {e}")
+        return False

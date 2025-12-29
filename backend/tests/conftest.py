@@ -16,8 +16,10 @@ from main import app
 from src.models.user import User
 
 
-# Test database URL (use in-memory SQLite for tests)
-TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+# Test database URL (use same PostgreSQL database with asyncpg driver for tests)
+# asyncpg uses 'ssl=require' instead of 'sslmode=require'
+import os
+TEST_DATABASE_URL = os.getenv("DATABASE_URL", "").replace("postgresql+psycopg://", "postgresql+asyncpg://").replace("sslmode=require", "ssl=require") if os.getenv("DATABASE_URL") else "postgresql+asyncpg://neondb_owner:npg_dv3nXfaukYb0@ep-fancy-shadow-a1aw89ne-pooler.ap-southeast-1.aws.neon.tech/todo_web_hackathon_final?ssl=require"
 
 
 @pytest.fixture(scope="session")
@@ -31,15 +33,24 @@ def event_loop() -> Generator:
 @pytest_asyncio.fixture(scope="function")
 async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
     """Create test database engine."""
+    from sqlalchemy import text
+
     engine = create_async_engine(
         TEST_DATABASE_URL,
         echo=False,
         future=True,
     )
 
-    # Create tables
+    # Create tables and indexes
     async with engine.begin() as conn:
+        # Create tables from SQLModel metadata
         await conn.run_sync(SQLModel.metadata.create_all)
+
+        # Create GIN index for full-text search (from migration 7153bd9cdab5)
+        await conn.execute(text("""
+            CREATE INDEX IF NOT EXISTS idx_tasks_fulltext_search ON tasks
+            USING gin(to_tsvector('english', coalesce(title, '') || ' ' || coalesce(description, '')))
+        """))
 
     yield engine
 

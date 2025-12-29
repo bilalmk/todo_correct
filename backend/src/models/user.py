@@ -4,7 +4,8 @@ from typing import Optional
 from uuid import UUID, uuid4
 
 from pydantic import EmailStr, field_validator
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, SQLModel, Column
+from sqlalchemy import DateTime
 
 
 class UserBase(SQLModel):
@@ -39,8 +40,14 @@ class User(UserBase, table=True):
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     password_hash: str = Field(max_length=255)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
 
 
 class UserCreate(UserBase):

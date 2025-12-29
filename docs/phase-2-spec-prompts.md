@@ -124,91 +124,126 @@ Create an implementation plan for Spec 1: Project Setup & Auth Foundation.
 
 ---
 
-## Spec 2: Database Setup with User-Scoped Tasks
+## Spec 2: Complete Database Schema for All Phases
 
-### `/sp.specify` Prompt
+**UPDATED:** This spec now creates a complete schema (4 tables: tasks, tags, task_tags, notifications) to support all phases (II-V) without requiring complex migrations later. Phase II uses only basic fields; advanced fields are nullable and used in Phase V microservices.
+
+### `/sp.specify` Prompt (CONCISE)
 
 ```
-Create a specification for database setup with user-scoped task management.
+Create a complete database schema supporting all project phases (II-V) with user isolation and performance optimization.
 
 **Context:**
-- Building on Spec 1 (User model already exists)
-- All tasks MUST be scoped to specific users (multi-tenancy)
-- Constitutional requirement: user isolation enforced at database level
+- Builds on Spec 1 User model
+- Phase II uses basic fields only; advanced fields nullable for Phase V microservices
+- Multi-tenancy enforced at database level
 
-**User Stories (Priority Order):**
+**Core Requirements:**
+- 4 tables: tasks, tags, task_tags (junction), notifications
+- All tables user-scoped (user_id foreign key, ON DELETE CASCADE)
+- Soft deletes (deleted_at), UTC timestamps, Alembic migrations
+- Priority enum: low/medium/high; recurrence: daily/weekly/monthly/custom
+- Full-text search on task title/description; 8 performance indexes
+- Query performance < 100ms; supports 10,000+ tasks per user
 
-1. **As a developer**, I want a properly structured database schema so tasks are isolated per user
-   - Given the User model exists
-   - When I create the Task model
-   - Then it has a foreign key to User with ON DELETE CASCADE
+**Task Table (13 fields):**
+```
+Basic (Phase II): id, user_id*, title, description, completed, created_at, updated_at, deleted_at
+Intermediate (Phase V): priority (enum, nullable)
+Advanced (Phase V): due_date, reminder_at, recurrence_pattern, recurrence_config (JSONB, all nullable)
+*Foreign key: users.id ON DELETE CASCADE
+```
 
-2. **As a developer**, I want database migrations so schema changes are versioned
-   - Given I modify the schema
-   - When I run migrations
-   - Then changes are applied safely with rollback capability
+**Tag Table (5 fields):**
+```
+id, user_id*, name, color (hex), created_at
+Constraint: UNIQUE(user_id, name)
+*Foreign key: users.id ON DELETE CASCADE
+```
 
-3. **As a developer**, I want seed data so I can test the application
-   - Given an empty database
-   - When I run seed script
-   - Then I have test users with sample tasks
+**TaskTag Junction (3 fields):**
+```
+task_id*, tag_id*, created_at
+Primary Key: (task_id, tag_id)
+*Foreign keys with CASCADE delete
+```
 
-**Requirements:**
-- FR-001: Task model MUST include user_id foreign key
-- FR-002: System MUST use Alembic for migrations
-- FR-003: Database MUST have indexes on user_id, completed, created_at
-- FR-004: Tasks MUST soft delete (deleted_at timestamp, not hard delete)
-- FR-005: All timestamps MUST be stored in UTC
+**Notification Table (11 fields):**
+```
+id, user_id*, task_id*, type (reminder/recurring_created/overdue), channel (email/push/sms),
+recipient, subject, body, sent_at, status (pending/sent/failed), error_message, created_at
+*Foreign keys: users.id, tasks.id (nullable) ON DELETE CASCADE
+```
+
+**Required Indexes:**
+```sql
+idx_tasks_user_id, idx_tasks_user_completed, idx_tasks_user_priority, idx_tasks_user_due_date
+idx_tasks_title_description (GIN full-text), idx_tasks_due_reminders
+idx_tags_user_id, idx_notifications_pending
+```
 
 **Success Criteria:**
-- SC-001: Migrations run successfully on fresh Neon database
-- SC-002: Query performance < 100ms with indexes
-- SC-003: Seed script creates 3 users with 5 tasks each
-- SC-004: Foreign key constraints prevent orphaned tasks
+- Migrations run on fresh Neon DB; all constraints enforced
+- Seed: 3 users, 10 tasks each, 5 tags, task_tags assignments, sample notifications
+- User isolation verified (no cross-user data access)
+- Phase II works with NULL advanced fields; no breaking changes Phase II→V
 
-**Key Entities:**
-- Task: id, user_id, title, description, completed, deleted_at, created_at, updated_at
+**Out of Scope:** Conversation/Message tables (Phase III), email sending logic, recurring task spawning (Phase V services)
 
-**Out of Scope:**
-- Due dates (Phase V feature)
-- Priorities and tags (Phase V feature)
-- Recurring tasks (Phase V feature)
-```
-
-### `/sp.plan` Prompt
+**SKILLS:** sqlmodel-expert, alembic-migrations, postgresql-performance
 
 ```
-Create an implementation plan for Spec 2: Database Setup with User-Scoped Tasks.
 
-**Input:** specs/002-database-setup/spec.md
+### `/sp.plan` Prompt (CONCISE)
 
-**Technical Context:**
-- Database: Neon Serverless PostgreSQL
-- ORM: SQLModel (combines SQLAlchemy + Pydantic)
-- Migrations: Alembic
-- Connection: asyncpg driver for async operations
-- Testing: pytest with test database
+```
+Create implementation plan for complete database schema (4 tables, Phase II-V support).
 
-**Architecture Requirements:**
-- User-scoped data with foreign key constraints
-- Soft deletes for all entities
-- Audit fields (created_at, updated_at, created_by, updated_by)
-- Indexes for query performance
-- Connection pooling configuration
-
-**Research Focus:**
-- SQLModel relationship definitions
-- Alembic migration best practices
-- Neon PostgreSQL connection string format
-- Async database session management
-- Seed data patterns for testing
+**Stack:** Neon PostgreSQL, SQLModel ORM, Alembic migrations, asyncpg, pytest
 
 **Deliverables:**
-- Complete Task model with SQLModel
-- Alembic migration files
-- Database schema diagram (ERD)
-- Seed data script
-- Database connection configuration
+
+1. **SQLModel Models** (backend/models.py)
+   - Task: 13 fields (basic + intermediate + advanced), relationships to User/Tag
+   - Tag: 5 fields, UNIQUE(user_id, name) constraint
+   - TaskTag: junction with composite PK (task_id, tag_id)
+   - Notification: 11 fields, status enum validation
+
+2. **Alembic Migration** (001_create_complete_schema.py)
+   - Creates 4 tables with foreign keys (ON DELETE CASCADE)
+   - 8 indexes: user isolation, composite (user+completed/priority/due), GIN full-text, partial
+   - Check constraints: priority enum, notification status
+   - Downgrade: drop tables in reverse order
+
+3. **Seed Script** (seed_database.py)
+   - Factory pattern: UserFactory, TaskFactory, TagFactory, NotificationFactory
+   - Creates: 3 users, 10 tasks/user (mixed basic/advanced), 5 tags/user, task-tag assignments, sample notifications
+   - Idempotent (safe to rerun)
+
+4. **Database Config** (db.py)
+   - Async engine with connection pool (min 5, max 20)
+   - Session factory for FastAPI dependency injection
+   - Health check endpoint
+
+5. **Tests** (test_db.py)
+   - User isolation (no cross-user access)
+   - Cascade deletes (user → tasks/tags)
+   - Many-to-many (task-tags)
+   - Query performance (< 100ms with EXPLAIN ANALYZE)
+
+**Research:**
+- SQLModel many-to-many relationships
+- PostgreSQL GIN full-text search
+- JSONB for recurrence_config
+- Async session management patterns
+
+**Validation:**
+- All 4 tables + 8 indexes created
+- Seed creates 30 tasks, 15 tags, task_tags, notifications
+- Phase II queries work (NULL advanced fields ignored)
+- Migration < 10s, seed < 5s
+
+**SKILLS:** sqlmodel-expert, alembic-migrations, postgresql-performance
 ```
 
 ---
@@ -780,13 +815,15 @@ Create an implementation plan for Spec 7: UI Polish & Advanced Features.
 | Spec | Focus | Estimated Time |
 |------|-------|----------------|
 | 1 | Project Setup & Auth | 6-8 hours |
-| 2 | Database Setup | 4-6 hours |
+| 2 | Complete Database Schema (4 tables) | 6-8 hours |
 | 3 | FastAPI CRUD APIs | 6-8 hours |
 | 4 | Frontend UI | 8-12 hours |
 | 5 | Integration Testing | 4-6 hours |
 | 6 | Deployment | 3-5 hours |
 | 7 | UI Polish | 6-10 hours |
-| **Total** | **Full Phase II** | **37-55 hours** |
+| **Total** | **Full Phase II** | **39-57 hours** |
+
+**Note:** Spec 2 now includes complete schema (tasks, tags, task_tags, notifications) to avoid migrations in Phase V.
 
 ### Constitutional Compliance
 

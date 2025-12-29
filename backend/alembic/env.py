@@ -13,6 +13,10 @@ load_dotenv()
 
 # Import all models to ensure they're registered with SQLModel metadata
 from src.models.user import User  # noqa: F401
+from src.models.task import Task  # noqa: F401
+from src.models.tag import Tag  # noqa: F401
+from src.models.task_tag import TaskTag  # noqa: F401
+from src.models.notification import Notification  # noqa: F401
 from src.core.config import settings
 
 # Alembic Config object
