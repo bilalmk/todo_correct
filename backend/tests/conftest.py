@@ -34,11 +34,13 @@ def event_loop() -> Generator:
 async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
     """Create test database engine."""
     from sqlalchemy import text
+    from sqlalchemy.pool import NullPool
 
     engine = create_async_engine(
         TEST_DATABASE_URL,
         echo=False,
         future=True,
+        poolclass=NullPool,  # Disable connection pooling to avoid cached statement errors
     )
 
     # Create tables and indexes

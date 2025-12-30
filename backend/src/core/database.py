@@ -4,20 +4,41 @@ from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool
+import os
 
 from .config import settings
 
 
+# Use NullPool in test environment to avoid cached statement issues
+is_test = os.getenv("PYTEST_CURRENT_TEST") is not None
+
 # Create async engine with connection pooling
+engine_kwargs = {
+    "echo": not settings.is_production,
+    "future": True,
+}
+
+if is_test:
+    # Use NullPool for tests to avoid cached statement errors
+    engine_kwargs["poolclass"] = NullPool
+else:
+    # Use connection pooling for production
+    engine_kwargs.update({
+        "pool_size": 5,
+        "max_overflow": 10,
+        "pool_pre_ping": True,
+        "pool_recycle": 3600,
+    })
+
 engine: AsyncEngine = create_async_engine(
     settings.DATABASE_URL,
-    echo=not settings.is_production,
-    future=True,
-    pool_size=5,
-    max_overflow=10,
-    pool_pre_ping=True,
-    pool_recycle=3600,
+    **engine_kwargs,
 )
+
+print("===========================")
+print(settings.DATABASE_URL)
+print("===========================")
 
 # Create async session factory
 async_session_maker = sessionmaker(

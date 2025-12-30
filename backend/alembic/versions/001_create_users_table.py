@@ -38,5 +38,5 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Drop users table and indexes."""
-    op.drop_index('idx_users_email', table_name='users')
-    op.drop_table('users')
+    op.drop_index('idx_users_email', table_name='users', if_exists=True)
+    op.drop_table('users', if_exists=True)

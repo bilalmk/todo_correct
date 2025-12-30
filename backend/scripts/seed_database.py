@@ -217,8 +217,19 @@ async def seed_database() -> None:
     async for session in get_session():
         try:
             # Check if data already exists
-            result = await session.execute(select(User))
-            existing_users = result.scalars().all()
+            result = await session.exec(select(User))
+            # session.exec may return a Result or a ScalarResult depending on SQLModel/SQLAlchemy versions.
+            # Handle both cases robustly.
+            scalars_func = getattr(result, "scalars", None)
+            if callable(scalars_func):
+                existing_users = scalars_func().all()
+            else:
+                rows = result.all()
+                # rows may be a list of Row objects (tuples) or of User objects
+                if rows and not isinstance(rows[0], User):
+                    existing_users = [r[0] for r in rows]
+                else:
+                    existing_users = rows
 
             if len(existing_users) > 0:
                 print(f"⚠️  Database already contains {len(existing_users)} users.")
