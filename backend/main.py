@@ -104,8 +104,14 @@ async def root():
 
 # Import and include routers
 from src.api.auth import router as auth_router
+from src.api.tasks import router as tasks_router
+from src.api.tags import router as tags_router
+from src.api.task_tags import router as task_tags_router
 
 app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(tasks_router, tags=["Tasks"])
+app.include_router(tags_router, tags=["Tags"])
+app.include_router(task_tags_router, tags=["Task-Tags"])
 
 
 if __name__ == "__main__":

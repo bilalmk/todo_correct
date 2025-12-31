@@ -1,4 +1,5 @@
 """Validation helpers for application data."""
+import re
 from typing import Optional
 from dateutil.rrule import rrulestr
 
@@ -75,3 +76,50 @@ def validate_recurrence_config(config: dict) -> tuple[bool, Optional[str]]:
             return False, "Exceptions must be a list"
 
     return True, None
+
+
+def validate_hex_color(color: Optional[str]) -> Optional[str]:
+    """
+    Validate and normalize hex color format.
+
+    Accepts:
+    - #RGB (shorthand) - normalized to #RRGGBB
+    - #RRGGBB (full format)
+
+    Args:
+        color: Hex color string or None
+
+    Returns:
+        Normalized uppercase #RRGGBB format or None
+
+    Raises:
+        ValueError: If color format is invalid
+
+    Examples:
+        >>> validate_hex_color("#f5a")
+        '#FF55AA'
+        >>> validate_hex_color("#FF5733")
+        '#FF5733'
+        >>> validate_hex_color(None)
+        None
+        >>> validate_hex_color("#GGG")
+        Traceback (most recent call last):
+            ...
+        ValueError: Invalid hex color format. Use #RRGGBB or #RGB.
+    """
+    if color is None:
+        return None
+
+    # Remove whitespace
+    color = color.strip()
+
+    # Check if it matches hex color format (# + 3 or 6 hex digits)
+    if not re.match(r"^#[0-9A-Fa-f]{3}$|^#[0-9A-Fa-f]{6}$", color):
+        raise ValueError("Invalid hex color format. Use #RRGGBB or #RGB.")
+
+    # Normalize shorthand (#RGB) to full format (#RRGGBB)
+    if len(color) == 4:  # #RGB
+        color = "#" + "".join([c * 2 for c in color[1:]])
+
+    # Normalize to uppercase
+    return color.upper()

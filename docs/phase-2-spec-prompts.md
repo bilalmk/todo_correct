@@ -192,7 +192,6 @@ idx_tags_user_id, idx_notifications_pending
 
 **SKILLS:** sqlmodel-expert, alembic-migrations, postgresql-performance
 
-```
 
 ### `/sp.plan` Prompt (CONCISE)
 
@@ -248,110 +247,141 @@ Create implementation plan for complete database schema (4 tables, Phase II-V su
 
 ---
 
-## Spec 3: FastAPI Task CRUD with Authentication
+## Spec 3: Complete FastAPI Task & Tag Management API (All Features)
 
-### `/sp.specify` Prompt
+**UPDATED for Option A**: Build complete feature set (Basic + Intermediate + Advanced) in Phase II monolith.
+
+### `/sp.specify` Prompt (Concise)
 
 ```
-Create a specification for authenticated Task CRUD API endpoints.
+Create a specification for complete authenticated Task and Tag Management API with all Basic, Intermediate, and Advanced features.
 
 **Context:**
-- Building on Spec 1 (auth) and Spec 2 (database)
-- All endpoints MUST require JWT authentication
-- Users can ONLY access their own tasks (enforced at API level)
-- Phase II requirement: RESTful endpoints at /api/v1/{user_id}/tasks
+- Builds on Spec 1 (auth) and Spec 2 (complete database: tasks, tags, task_tags, notifications)
+- All endpoints require JWT authentication with user isolation
+- RESTful API at /api/v1/{user_id}/tasks and /api/v1/{user_id}/tags
+- Complete Phase II feature implementation in single monolithic API
 
-**User Stories (Priority Order):**
+**Feature Scope:**
 
-1. **As a logged-in user**, I want to create tasks so I can track my work
-   - Given I'm authenticated with JWT
-   - When I POST to /api/v1/{user_id}/tasks with title and description
-   - Then a new task is created and returned
+**Basic Level (5 features):**
+1. Create tasks with full details (title, description, priority, due_date, reminder_at, recurrence)
+2. View task list with all details and tags
+3. Update any task field (partial updates)
+4. Mark tasks complete/incomplete
+5. Delete tasks (soft delete)
 
-2. **As a logged-in user**, I want to view my task list so I can see what needs doing
-   - Given I'm authenticated
-   - When I GET /api/v1/{user_id}/tasks
-   - Then I see only MY tasks, not other users' tasks
+**Intermediate Level (4 features):**
+6. Create/manage tags (name, color)
+7. Assign/remove tags from tasks (many-to-many)
+8. Filter tasks by priority, status, tag, due dates
+9. Search tasks (full-text on title/description) and sort (created_at, due_date, priority, title)
 
-3. **As a logged-in user**, I want to update tasks so I can modify details
-   - Given I own a task
-   - When I PUT /api/v1/{user_id}/tasks/{task_id}
-   - Then the task is updated with new data
+**Advanced Level (2 features):**
+10. Set due dates and reminders (ISO 8601 timestamps)
+11. Create recurring tasks (pattern: daily/weekly/monthly/custom, JSONB config)
 
-4. **As a logged-in user**, I want to mark tasks complete so I can track progress
-   - Given I own a task
-   - When I PATCH /api/v1/{user_id}/tasks/{task_id}/complete
-   - Then completed field is toggled
+**API Endpoints (14 unique):**
+- Tasks: POST, GET, GET/{id}, PUT/{id}, DELETE/{id}, PATCH/{id}/complete
+- Tags: POST, GET, GET/{id}, PUT/{id}, DELETE/{id}
+- Task-Tags: POST /tasks/{id}/tags, DELETE /tasks/{id}/tags/{tag_id}, GET /tasks/{id}/tags
+- Notification: send notification on user email
 
-5. **As a logged-in user**, I want to delete tasks so I can remove unwanted items
-   - Given I own a task
-   - When I DELETE /api/v1/{user_id}/tasks/{task_id}
-   - Then the task is soft-deleted
+**Query Parameters (GET /tasks):**
+- Filters: status, priority, tag, due_before, due_after
+- Search: search (full-text)
+- Sort: sort (field), order (asc/desc)
 
-**Requirements:**
-- FR-001: All endpoints MUST validate JWT token
-- FR-002: User ID in URL MUST match user_id from JWT token
-- FR-003: API MUST return 401 Unauthorized for invalid/missing tokens
-- FR-004: API MUST return 403 Forbidden if user_id mismatch
-- FR-005: API MUST return 404 Not Found for non-existent tasks
-- FR-006: System MUST generate OpenAPI documentation
-- FR-007: Response format MUST be consistent JSON
+**Critical Requirements:**
+- FR-001: JWT validation on all endpoints, user_id match required
+- FR-002: Priority enum: low|medium|high; Recurrence: daily|weekly|monthly|custom
+- FR-003: Tag names unique per user, color hex format (#RRGGBB)
+- FR-004: Soft deletes (deleted_at), excluded from all queries
+- FR-005: Task responses include nested tag details
+- FR-006: Full-text search uses PostgreSQL GIN index (already in schema)
+- FR-007: OpenAPI docs at /docs with all endpoints
 
 **Success Criteria:**
-- SC-001: API response time p95 < 500ms
-- SC-002: Users cannot access other users' tasks (verified by tests)
-- SC-003: OpenAPI docs accessible at /docs
-- SC-004: All error responses follow standard format
-
-**Edge Cases:**
-- Empty task list returns []
-- Invalid task_id returns 404
-- Cross-user access attempts return 403
-- Missing JWT returns 401
-- Expired JWT returns 401
+- API p95 < 500ms with filters
+- Multi-user isolation verified
+- Search < 200ms using GIN index
+- All filters combinable (AND logic)
 
 **Out of Scope:**
-- Search and filtering (Phase V)
-- Sorting (Phase V)
-- Pagination (can add if needed)
+- Recurring task spawning (Phase V microservice)
+- Real-time WebSocket (Phase V)
+- Task sharing, attachments, comments
+
+**SKILLS:** fastapi-expert, sqlmodel-expert, configuring-better-auth
 ```
 
-### `/sp.plan` Prompt
+### `/sp.plan` Prompt (Concise)
 
 ```
-Create an implementation plan for Spec 3: FastAPI Task CRUD with Authentication.
+Create implementation plan for Spec 3: Complete FastAPI Task & Tag Management API.
 
-**Input:** specs/003-fastapi-task-crud/spec.md
+**Input:** specs/003-fastapi-complete-api/spec.md
 
-**Technical Context:**
-- Framework: FastAPI with async endpoints
-- Auth: JWT validation on all protected routes
-- Database: Async SQLModel queries
-- Testing: pytest with test client
-- Docs: Auto-generated OpenAPI/Swagger
+**Stack:**
+- FastAPI (async), SQLModel (async), Pydantic (DTOs), pytest (testing)
+- Auth: JWT validation dependencies
+- Database: Existing schema (tasks, tags, task_tags, notifications) with GIN index
+- Docs: Auto-generated OpenAPI
 
-**Architecture Requirements:**
-- RESTful API design (GET, POST, PUT, PATCH, DELETE)
-- Versioned endpoints (/api/v1/...)
-- JWT middleware for authentication
-- User isolation enforcement (user_id validation)
-- Consistent error response format
-- Request/response validation with Pydantic
+**Architecture:**
+- 14 RESTful endpoints (/api/v1/{user_id}/...)
+- JWT middleware: get_current_user, verify_user_match
+- Repository pattern: TaskRepo, TagRepo, TaskTagRepo
+- Eager loading: joinedload for task-tags relationships
+- Query service: dynamic filtering, full-text search, sorting
+- Soft delete filtering: deleted_at IS NULL on all queries
+- Error handling: 401/403/404/400/500 with consistent JSON format
+- Request ID tracking per request
 
-**Research Focus:**
-- FastAPI dependency injection for JWT validation
-- Async database queries with SQLModel
-- Error handling middleware
-- CORS configuration for frontend
-- OpenAPI customization
+**Component Breakdown:**
+1. **Auth Layer**: JWT dependencies, user_id validation
+2. **Pydantic Models**: TaskCreate, TaskUpdate, TaskResponse (with nested tags), TagCreate, TagUpdate, TagResponse, ErrorResponse
+3. **Repositories**: CRUD with soft delete, unique validation, bulk operations
+4. **Query Service**: Build dynamic filters from query params, PostgreSQL full-text search
+5. **Endpoints**: 6 task, 5 tag, 3 task-tag endpoints
+6. **Testing**: Multi-user isolation, edge cases, performance (50+ tests)
+
+**Key Patterns:**
+- Async sessions with connection pooling (min 5, max 20)
+- Transactions for multi-table operations (tag assignment)
+- Eager loading to avoid N+1 queries
+- Partial updates (only provided fields change)
+- Bulk tag assignment with duplicate checks
+
+**API Response Example:**
+```json
+{
+  "id": 1,
+  "title": "Buy groceries",
+  "completed": false,
+  "priority": "high",
+  "due_date": "2025-12-30T10:00:00Z",
+  "tags": [{"id": 1, "name": "work", "color": "#FF5733"}],
+  "created_at": "2025-12-20T14:30:00Z"
+}
+```
+
+**Performance Targets:**
+- Task list with filters: < 200ms (p95)
+- Full-text search: < 150ms using GIN index
+- Task creation: < 100ms
 
 **Deliverables:**
-- API endpoint implementations (5 endpoints)
-- JWT validation dependency
-- Error response models
-- API contract tests
-- OpenAPI specification
-```
+- 14 async API endpoints
+- 7 Pydantic models
+- 3 repository classes
+- Query service (filtering/search/sort)
+- JWT auth dependencies
+- Error handling middleware
+- Comprehensive test suite
+- OpenAPI documentation
+
+**SKILLS:** fastapi-expert, sqlmodel-expert, configuring-better-auth
 
 ---
 
@@ -360,123 +390,172 @@ Create an implementation plan for Spec 3: FastAPI Task CRUD with Authentication.
 ### `/sp.specify` Prompt
 
 ```
-Create a specification for the Next.js frontend with authentication and task management.
+Create specification for sophisticated modern frontend design (UI/UX only, no API integration).
 
 **Context:**
-- Building on Spec 3 (backend APIs ready)
-- Next.js 16+ with App Router (NOT Pages Router)
-- All 5 Phase II basic features required
-- Responsive design for mobile and desktop
-
-**User Stories (Priority Order):**
-
-1. **As a new user**, I want to register from the UI so I can create an account
-   - Given I'm on the registration page
-   - When I submit the form
-   - Then I'm logged in and redirected to task list
-
-2. **As a user**, I want to log in from the UI so I can access my tasks
-   - Given I'm on the login page
-   - When I submit valid credentials
-   - Then I'm redirected to my task list
-
-3. **As a logged-in user**, I want to see my task list so I know what to do
-   - Given I'm authenticated
-   - When I visit the home page
-   - Then I see all my tasks (not other users' tasks)
-
-4. **As a logged-in user**, I want to add new tasks so I can track work
-   - Given I'm on the task list
-   - When I click "Add Task" and enter title/description
-   - Then the task appears in my list immediately
-
-5. **As a logged-in user**, I want to mark tasks complete so I can track progress
-   - Given I have a task
-   - When I click the checkbox
-   - Then the task is marked complete with visual feedback
-
-6. **As a logged-in user**, I want to edit tasks so I can update details
-   - Given I have a task
-   - When I click edit and modify title/description
-   - Then the task updates in my list
-
-7. **As a logged-in user**, I want to delete tasks so I can remove items
-   - Given I have a task
-   - When I click delete and confirm
-   - Then the task is removed from my list
-
-8. **As a logged-in user**, I want to log out so I can secure my account
-   - Given I'm logged in
-   - When I click logout
-   - Then I'm redirected to login and cannot access tasks
+- Backend complete: 14 REST endpoints (tasks, tags, filters, search, sort) with JWT auth
+- Basic Next.js 16+ + Better Auth exists
+- This spec: Design only with mock data
+- Next spec: API integration
 
 **Requirements:**
-- FR-001: System MUST use Next.js 16+ App Router
-- FR-002: System MUST store JWT token securely (httpOnly cookie preferred)
-- FR-003: Protected routes MUST redirect to login if not authenticated
-- FR-004: UI MUST show loading states during API calls
-- FR-005: UI MUST show error messages for failed operations
-- FR-006: UI MUST be responsive (mobile and desktop)
-- FR-007: Task list MUST update optimistically for better UX
+
+**1. Public Home Page**
+- Hero with value proposition, feature showcase, CTAs (Sign Up/Login)
+- Modern design, smooth animations, responsive
+- Professional typography and color scheme
+
+**2. Auth Pages (Enhance Existing)**
+- Beautiful login/register forms with validation
+- Loading states, error messages, password strength indicator
+
+**3. Dashboard (Main Focus)**
+
+**Layout:**
+- Sidebar/top nav, user profile dropdown, task statistics, quick actions
+
+**Task Interface:**
+- Task cards with: priority badges (low/med/high), tag pills (colored), due date indicators, completion checkboxes
+- Create/Edit modal: title, description, priority, due date, reminder, recurrence, tags, validation
+- Filter panel: status, priority, tags, date range, full-text search, clear all
+- Sort controls: created_at, due_date, priority, title (asc/desc)
+- Empty states, drag-and-drop visual (no logic)
+
+**Tag Management:**
+- Create/edit/delete tags with color picker
+- Tag list with usage count
+
+**Interactions:**
+- Toast notifications, loading skeletons, confirmation dialogs
+- Optimistic UI feedback
+
+**Design System:**
+- Stack: Next.js 16+ App Router, TypeScript, Tailwind CSS, shadcn/ui
+- Animations: Framer Motion
+- Forms: React Hook Form + Zod
+- Icons: Lucide React
+- Date/Time: React Day Picker
+- Colors: Modern palette (indigo/purple primary)
+- Typography: Inter or similar
+
+**Accessibility:**
+- WCAG 2.1 AA, keyboard nav, ARIA labels, focus indicators, color contrast
+
+**Responsive:**
+- Mobile (375px+): stacked, hamburger menu
+- Tablet (768px+): adaptive
+- Desktop (1024px+): full sidebar
 
 **Success Criteria:**
-- SC-001: Login to task list flow < 2 seconds
-- SC-002: Task actions feel instant (optimistic updates)
-- SC-003: UI works on mobile (375px width minimum)
-- SC-004: No cross-user data leakage (verified by multi-user testing)
-- SC-005: Accessibility: keyboard navigation works
-
-**Edge Cases:**
-- Empty task list shows helpful message
-- Network errors show retry option
-- Expired JWT redirects to login
-- Long task titles/descriptions truncate gracefully
+- Impressive first impression (demo video)
+- Professional polish, 60fps animations
+- Intuitive UX, passes WAVE accessibility
+- All features visually represented (mock data)
 
 **Out of Scope:**
-- Dark mode (can add in Spec 7 polish)
-- Keyboard shortcuts (Spec 7)
-- Advanced filtering (Phase V)
+- API integration, real auth flows, data persistence, backend errors
+
+**SKILLS:** building-nextjs-apps, tailwind-expert, ui-ux-design, modern-component-patterns
 ```
 
 ### `/sp.plan` Prompt
 
 ```
-Create an implementation plan for Spec 4: Frontend - Auth & Task Management.
+Create plan for modern frontend design (UI only, no integration).
 
-**Input:** specs/004-frontend-auth-tasks/spec.md
+**Input:** specs/004-frontend-design/spec.md
 
-**Technical Context:**
-- Framework: Next.js 16+ with App Router
-- Language: TypeScript
-- Styling: Tailwind CSS (utility-first)
-- State: React hooks (useState, useEffect, useContext)
-- API Client: fetch with custom wrapper
-- Testing: Jest + React Testing Library
+**Stack:**
+- Next.js 16+ App Router, TypeScript, Tailwind, shadcn/ui, Framer Motion
+- React Hook Form + Zod, React Day Picker, Lucide icons
 
-**Architecture Requirements:**
-- App Router structure (/app directory)
-- Server Components where possible
-- Client Components for interactivity
-- Protected route middleware
-- Centralized API client
-- Optimistic UI updates
-- Error boundary components
+**Structure:**
+```
+src/
+├── app/
+│   ├── page.tsx              # Home (redesign)
+│   ├── auth/login/page.tsx   # Enhance
+│   ├── auth/register/page.tsx
+│   └── dashboard/
+│       ├── layout.tsx        # Nav layout
+│       ├── page.tsx          # Tasks
+│       └── tags/page.tsx
+├── components/
+│   ├── home/
+│   │   ├── Hero.tsx
+│   │   └── Features.tsx
+│   ├── dashboard/
+│   │   ├── Sidebar.tsx
+│   │   ├── TaskList.tsx
+│   │   ├── TaskCard.tsx
+│   │   ├── TaskModal.tsx     # Create/edit with all fields
+│   │   ├── FilterPanel.tsx   # All filters
+│   │   ├── SortControls.tsx
+│   │   └── TagManager.tsx
+│   └── ui/                   # shadcn components
+│       ├── Modal.tsx
+│       ├── Badge.tsx
+│       ├── DatePicker.tsx
+│       ├── TagPicker.tsx
+│       ├── ColorPicker.tsx
+│       ├── Toast.tsx
+│       └── Skeleton.tsx
+├── lib/
+│   ├── mock-data.ts          # Sample tasks/tags
+│   └── design-tokens.ts      # Colors, spacing
+```
 
-**Research Focus:**
-- Next.js 16+ App Router authentication patterns
-- JWT token storage (httpOnly cookies vs localStorage)
-- Server vs Client Components in App Router
-- Optimistic updates with React
-- Tailwind CSS component patterns
-- Form validation (react-hook-form or native)
+**Implementation Phases:**
+1. **Foundation:** Tailwind config, design tokens, base UI components
+2. **Home Page:** Hero, features, animations
+3. **Auth Enhancement:** Form styling, validation feedback
+4. **Dashboard Layout:** Sidebar, top bar, responsive grid
+5. **Task UI:** Cards, modal with all fields, date/tag pickers
+6. **Filters/Sort:** Panel, search, controls
+7. **Polish:** Framer Motion transitions, toasts, skeletons, accessibility
+
+**Design Tokens:**
+```typescript
+colors: {
+  priority: { low: '#10B981', medium: '#F59E0B', high: '#EF4444' },
+  status: { complete: '#10B981', incomplete: '#6B7280', overdue: '#EF4444' }
+}
+```
+
+**Mock Data:**
+- 10-15 tasks (varied priorities, dates, tags, states)
+- Sample tags with colors
+- Edge cases (long titles, overdue, many tags)
+
+**Animations:**
+- Page transitions: fade + slide (200ms)
+- Modal: scale + fade (150ms)
+- Hover: subtle lift
+- Toasts: slide from top-right
+
+**Responsive:**
+- Mobile: stacked, hamburger
+- Tablet: adaptive sidebar
+- Desktop: full layout
 
 **Deliverables:**
-- Authentication pages (login, register)
-- Task list page with all CRUD operations
-- Protected route middleware
-- API client with JWT handling
-- Component library (TaskItem, TaskForm, etc.)
-- Responsive layout
+1. Home page, enhanced auth pages
+2. Dashboard with nav
+3. Task list + modal (all fields)
+4. Filter/sort UI
+5. Tag management
+6. Design system components
+7. Mock data
+8. Responsive layouts
+
+**Validation:**
+- Mock data displays correctly
+- 60fps animations
+- Responsive at all breakpoints
+- Passes WAVE accessibility
+- No console errors
+
+**SKILLS:** building-nextjs-apps, tailwind-expert, ui-ux-design, framer-motion-animations
 ```
 
 ---
@@ -816,14 +895,17 @@ Create an implementation plan for Spec 7: UI Polish & Advanced Features.
 |------|-------|----------------|
 | 1 | Project Setup & Auth | 6-8 hours |
 | 2 | Complete Database Schema (4 tables) | 6-8 hours |
-| 3 | FastAPI CRUD APIs | 6-8 hours |
-| 4 | Frontend UI | 8-12 hours |
-| 5 | Integration Testing | 4-6 hours |
+| 3 | **Complete API (14 endpoints, all features)** | **12-16 hours** |
+| 4 | Frontend UI (all features + tags + filters) | 12-16 hours |
+| 5 | Integration Testing (comprehensive) | 6-8 hours |
 | 6 | Deployment | 3-5 hours |
 | 7 | UI Polish | 6-10 hours |
-| **Total** | **Full Phase II** | **39-57 hours** |
+| **Total** | **Full Phase II (Complete App)** | **51-71 hours** |
 
-**Note:** Spec 2 now includes complete schema (tasks, tags, task_tags, notifications) to avoid migrations in Phase V.
+**Note:**
+- Spec 2 includes complete schema (tasks, tags, task_tags, notifications) to avoid migrations in Phase V.
+- **Spec 3 (Option A)** builds ALL features (Basic + Intermediate + Advanced) in Phase II as a monolith.
+- Phase V will focus on microservices decomposition, not adding features.
 
 ### Constitutional Compliance
 

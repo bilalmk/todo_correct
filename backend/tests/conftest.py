@@ -41,6 +41,10 @@ async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
         echo=False,
         future=True,
         poolclass=NullPool,  # Disable connection pooling to avoid cached statement errors
+        connect_args={
+            "prepared_statement_cache_size": 0,  # Disable prepared statement caching for asyncpg
+            "statement_cache_size": 0,  # Disable statement caching
+        },
     )
 
     # Create tables and indexes
@@ -106,12 +110,16 @@ async def async_client(override_get_session) -> AsyncGenerator:
 
 @pytest_asyncio.fixture
 async def test_user(test_session: AsyncSession) -> User:
-    """Create a test user."""
+    """Create a test user with unique email to avoid conflicts."""
     from src.services.user import create_user
     from src.models.user import UserCreate
+    from uuid import uuid4
+
+    # Generate unique email for each test to avoid constraint violations
+    unique_email = f"test-{uuid4().hex[:8]}@example.com"
 
     user_data = UserCreate(
-        email="test@example.com",
+        email=unique_email,
         password="testpassword123",
         name="Test User",
     )
@@ -133,3 +141,9 @@ async def auth_headers(test_user: User) -> dict:
     return {
         "Authorization": f"Bearer {token}",
     }
+
+
+@pytest_asyncio.fixture
+async def user_id(test_user: User) -> str:
+    """Return test user ID as string."""
+    return str(test_user.id)

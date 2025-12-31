@@ -48,6 +48,7 @@ class TaskTag(SQLModel, table=True):
         # Index for reverse lookup: find all tasks for a given tag
         Index("idx_task_tags_tag_id", "tag_id"),
         # Forward lookup (task_id) is already covered by composite PK
+        {"extend_existing": True},  # Allow table redefinition in tests
     )
 
     class Config:

@@ -1,9 +1,15 @@
 """Task model for todo application."""
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, List, TYPE_CHECKING
 from uuid import UUID
-from sqlmodel import Field, SQLModel, Column, Index, text
+from sqlmodel import Field, SQLModel, Column, Index, text, Relationship
 from sqlalchemy import BigInteger, DateTime, Text, CheckConstraint, String, JSON
+
+# Import TaskTag junction table (defined before this model)
+from .task_tag import TaskTag
+
+if TYPE_CHECKING:
+    from .tag import Tag
 
 
 class Task(SQLModel, table=True):
@@ -103,6 +109,13 @@ class Task(SQLModel, table=True):
         description="JSONB field storing iCalendar RRULE format",
     )
 
+    # Relationships
+    tags: List["Tag"] = Relationship(
+        back_populates="tasks",
+        link_model=TaskTag,  # Use actual class, not string (per sqlmodel-expert guide)
+        sa_relationship_kwargs={"lazy": "select"},
+    )
+
     # Table-level constraints and indexes
     __table_args__ = (
         # Composite index: user_id + completed (for filtering by completion status)
@@ -144,6 +157,7 @@ class Task(SQLModel, table=True):
             "length(description) <= 10000",
             name="check_description_length",
         ),
+        {"extend_existing": True},  # Allow table redefinition in tests
     )
 
     class Config:

@@ -3,7 +3,7 @@ from typing import Optional
 from uuid import UUID
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Path, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -99,3 +99,37 @@ async def get_current_user_optional(
 
     except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, ValueError):
         return None
+
+
+async def verify_user_match(
+    current_user: User = Depends(get_current_user),
+    user_id: UUID = Path(..., description="User ID from URL path"),
+) -> User:
+    """
+    Verify that the authenticated user's ID matches the URL path user_id.
+
+    This dependency ensures authorization by preventing users from accessing
+    other users' resources via URL manipulation.
+
+    Args:
+        current_user: Authenticated user from JWT token
+        user_id: User ID from URL path parameter
+
+    Returns:
+        The authenticated user if match is successful
+
+    Raises:
+        HTTPException: 403 Forbidden if user_id mismatch
+
+    Example:
+        @app.get("/api/v1/{user_id}/tasks")
+        async def list_tasks(user: User = Depends(verify_user_match)):
+            # user.id is guaranteed to match URL user_id
+            pass
+    """
+    if current_user.id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User ID mismatch",
+        )
+    return current_user

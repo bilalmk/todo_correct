@@ -142,6 +142,7 @@ class Notification(SQLModel, table=True):
             "length(body) <= 10000",
             name="check_notification_body_length",
         ),
+        {"extend_existing": True},  # Allow table redefinition in tests
     )
 
     class Config:

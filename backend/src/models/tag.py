@@ -1,9 +1,15 @@
 """Tag model for task categorization."""
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, List, TYPE_CHECKING
 from uuid import UUID
-from sqlmodel import Field, SQLModel, Column, Index, text
+from sqlmodel import Field, SQLModel, Column, Index, text, Relationship
 from sqlalchemy import BigInteger, DateTime, CheckConstraint
+
+# Import TaskTag junction table (defined before this model)
+from .task_tag import TaskTag
+
+if TYPE_CHECKING:
+    from .task import Task
 
 
 class Tag(SQLModel, table=True):
@@ -58,6 +64,13 @@ class Tag(SQLModel, table=True):
         description="Soft delete timestamp (NULL = active)",
     )
 
+    # Relationships
+    tasks: List["Task"] = Relationship(
+        back_populates="tags",
+        link_model=TaskTag,  # Use actual class, not string (per sqlmodel-expert guide)
+        sa_relationship_kwargs={"lazy": "select"},
+    )
+
     # Table-level constraints and indexes
     __table_args__ = (
         # Composite index: user_id (for efficient user-scoped queries)
@@ -76,6 +89,7 @@ class Tag(SQLModel, table=True):
             "color IS NULL OR color ~ '^#[0-9A-Fa-f]{6}$'",
             name="check_color_hex_format",
         ),
+        {"extend_existing": True},  # Allow table redefinition in tests
     )
 
     class Config:
