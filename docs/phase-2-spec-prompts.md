@@ -455,7 +455,10 @@ Create specification for sophisticated modern frontend design (UI/UX only, no AP
 **Out of Scope:**
 - API integration, real auth flows, data persistence, backend errors
 
-**SKILLS:** building-nextjs-apps, tailwind-expert, ui-ux-design, modern-component-patterns
+**SKILLS:**  
+- @.claude/skills/custom/frontend-design-system
+- @.claude/skills/mjs/building-nextjs-apps
+- @.claude/skills/panaversity/theme-factory
 ```
 
 ### `/sp.plan` Prompt
@@ -555,8 +558,10 @@ colors: {
 - Passes WAVE accessibility
 - No console errors
 
-**SKILLS:** building-nextjs-apps, tailwind-expert, ui-ux-design, framer-motion-animations
-```
+**SKILLS:**  
+- @.claude/skills/custom/frontend-design-system
+- @.claude/skills/mjs/building-nextjs-apps
+- @.claude/skills/panaversity/theme-factory
 
 ---
 

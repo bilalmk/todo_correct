@@ -1,54 +1,82 @@
+"use client";
+
 /**
- * Dashboard Page (Protected Route)
+ * Dashboard Page - Main Tasks View
+ *
+ * Built following skills:
+ * - @.claude/skills/mjs/building-nextjs-apps (Next.js 16 patterns)
+ * - @.claude/skills/custom/frontend-design-system (Component composition)
+ *
+ * Features:
+ * - FilterBar for search and filtering
+ * - TaskList with all task cards
+ * - TaskModal for creating new tasks
+ * - Integration with TaskContext and FilterContext
+ * - Responsive layout
+ * - Loading states
+ * - Empty states
  */
-import { getSession } from "@/lib/auth";
-import { redirect } from "next/navigation";
-import LogoutButton from "@/components/LogoutButton";
 
-export default async function DashboardPage() {
-  // Get session on server side
-  const session = await getSession();
+import { useState } from "react";
+import { toast } from "sonner";
+import { FilterBar } from "@/components/dashboard/FilterBar";
+import { TaskList } from "@/components/dashboard/TaskList";
+import { TaskModal } from "@/components/dashboard/TaskModal";
+import { useTasks } from "@/contexts/TaskContext";
+import { TaskFormData } from "@/lib/validation-schemas";
 
-  // Redirect if not authenticated
-  if (!session || !session.user) {
-    redirect("/auth/login");
-  }
+export default function DashboardPage() {
+  const { addTask } = useTasks();
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleCreateTask = async (data: TaskFormData) => {
+    setIsSubmitting(true);
+    try {
+      await addTask({
+        title: data.title,
+        description: data.description || undefined,
+        completed: false,
+        priority: data.priority,
+        due_date: data.due_date || undefined,
+        reminder_time: data.reminder_time || undefined,
+        recurrence: data.recurrence,
+        tags: data.tags,
+      });
+      toast.success("Task created successfully!");
+      setIsCreateModalOpen(false);
+    } catch (error) {
+      toast.error("Failed to create task. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white shadow-xl rounded-lg p-8">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-3xl font-bold text-gray-800">
-              Dashboard
-            </h1>
-            <LogoutButton />
-          </div>
-
-          <div className="bg-blue-50 p-6 rounded-lg">
-            <h2 className="text-xl font-semibold mb-4 text-gray-800">
-              Welcome, {session.user.name}!
-            </h2>
-            <div className="space-y-2 text-gray-700">
-              <p>
-                <span className="font-medium">Email:</span> {session.user.email}
-              </p>
-              <p>
-                <span className="font-medium">User ID:</span> {session.user.id}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-8">
-            <h3 className="text-lg font-semibold mb-4 text-gray-800">
-              Your Tasks
-            </h3>
-            <p className="text-gray-600">
-              Task management features coming in Phase III...
-            </p>
-          </div>
-        </div>
+    <div className="space-y-6">
+      {/* Page header */}
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+          My Tasks
+        </h1>
+        <p className="text-gray-600 dark:text-gray-400">
+          Organize and track your tasks efficiently
+        </p>
       </div>
-    </main>
+
+      {/* Filter bar */}
+      <FilterBar onCreateTask={() => setIsCreateModalOpen(true)} />
+
+      {/* Task list */}
+      <TaskList />
+
+      {/* Create task modal */}
+      <TaskModal
+        open={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={handleCreateTask}
+        isLoading={isSubmitting}
+      />
+    </div>
   );
 }

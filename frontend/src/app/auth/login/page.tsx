@@ -1,158 +1,88 @@
 /**
- * User Login Page
- * Following Next.js 16 patterns
+ * Login Page
+ *
+ * Built following skills:
+ * - @.claude/skills/mjs/building-nextjs-apps (Next.js 16 App Router patterns)
+ * - @.claude/skills/custom/frontend-design-system (Responsive layout patterns)
+ *
+ * Features:
+ * - Server Component with proper metadata
+ * - Responsive layout (centered card on desktop, full-screen on mobile)
+ * - Brand consistency with landing page
+ * - Accessible navigation and links
  */
-"use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Metadata } from "next";
 import Link from "next/link";
-import { loginSchema, type LoginFormData } from "@/lib/validation";
+import { LoginForm } from "@/components/auth/LoginForm";
+import { ArrowLeft } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Sign In - Todo Evolution",
+  description: "Sign in to your Todo Evolution account to manage your tasks.",
+};
 
 export default function LoginPage() {
-  const router = useRouter();
-  const [formData, setFormData] = useState<LoginFormData>({
-    email: "",
-    password: "",
-  });
-  const [errors, setErrors] = useState<Partial<Record<keyof LoginFormData, string>>>({});
-  const [serverError, setServerError] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrors({});
-    setServerError("");
-    setIsLoading(true);
-
-    try {
-      // Validate form data
-      const validatedData = loginSchema.parse(formData);
-
-      // Call Better Auth sign-in
-      const result = await fetch("/api/auth/sign-in/email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(validatedData),
-      });
-
-      const data = await result.json();
-
-      if (!result.ok) {
-        throw new Error(data.message || "Invalid email or password");
-      }
-
-      // Login successful - redirect to dashboard
-      router.push("/dashboard");
-      router.refresh();
-    } catch (error) {
-      if (error instanceof Error) {
-        setServerError(error.message);
-      } else {
-        setServerError("An unexpected error occurred");
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-
-    // Clear field error on change
-    if (errors[name as keyof LoginFormData]) {
-      setErrors((prev) => {
-        const newErrors = { ...prev };
-        delete newErrors[name as keyof LoginFormData];
-        return newErrors;
-      });
-    }
-  };
-
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-6 bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="w-full max-w-md">
-        <div className="bg-white shadow-xl rounded-lg p-8">
-          <h1 className="text-3xl font-bold text-center mb-6 text-gray-800">
-            Welcome Back
-          </h1>
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-purple-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900">
+      {/* Header */}
+      <header className="w-full p-4 md:p-6">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to home
+        </Link>
+      </header>
 
-          {serverError && (
-            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-              {serverError}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Email Field */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                Email Address
-              </label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.email ? "border-red-500" : "border-gray-300"
-                }`}
-                disabled={isLoading}
-                aria-invalid={!!errors.email}
-                aria-describedby={errors.email ? "email-error" : undefined}
-              />
-              {errors.email && (
-                <p id="email-error" className="mt-1 text-sm text-red-600">
-                  {errors.email}
-                </p>
-              )}
+      {/* Main content */}
+      <main className="flex-1 flex items-center justify-center px-4 py-8">
+        <div className="w-full max-w-md">
+          {/* Card */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 md:p-8 border border-gray-200 dark:border-gray-700">
+            {/* Logo/Brand */}
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600 dark:from-purple-400 dark:to-indigo-400 mb-2">
+                Todo Evolution
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400">
+                Welcome back! Sign in to continue
+              </p>
             </div>
 
-            {/* Password Field */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                Password
-              </label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.password ? "border-red-500" : "border-gray-300"
-                }`}
-                disabled={isLoading}
-                aria-invalid={!!errors.password}
-                aria-describedby={errors.password ? "password-error" : undefined}
-              />
-              {errors.password && (
-                <p id="password-error" className="mt-1 text-sm text-red-600">
-                  {errors.password}
-                </p>
-              )}
+            {/* Login Form */}
+            <LoginForm />
+
+            {/* Divider */}
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300 dark:border-gray-600" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                  Don't have an account?
+                </span>
+              </div>
             </div>
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-            >
-              {isLoading ? "Signing In..." : "Sign In"}
-            </button>
-          </form>
+            {/* Sign up link */}
+            <div className="text-center">
+              <Link
+                href="/auth/register"
+                className="text-sm font-medium text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
+              >
+                Create a free account
+              </Link>
+            </div>
+          </div>
 
-          <p className="mt-6 text-center text-sm text-gray-600">
-            Don't have an account?{" "}
-            <Link href="/auth/register" className="text-blue-600 hover:text-blue-800 font-medium">
-              Register
-            </Link>
+          {/* Footer note */}
+          <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-6">
+            Protected by industry-standard encryption
           </p>
         </div>
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }
