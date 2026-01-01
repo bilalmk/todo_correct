@@ -4,19 +4,20 @@
 **Constitution**: `.specify/memory/constitution.md`
 **Project Constraints**: `CLAUDE.md`
 
-This document contains ready-to-use prompts for all 7 specification cycles required to complete Phase II of the Todo Evolution Hackathon.
+This document contains ready-to-use prompts for all 8 specification cycles required to complete Phase II of the Todo Evolution Hackathon.
 
 ---
 
-## Overview: 7-Spec Breakdown
+## Overview: 8-Spec Breakdown
 
 1. **Project Setup & Auth Foundation** - Monorepo, Better Auth, User model
 2. **Database Setup with User-Scoped Tasks** - SQLModel, Migrations, User isolation
 3. **FastAPI Task CRUD with Authentication** - Protected APIs, JWT validation
 4. **Frontend - Auth & Task Management** - Next.js UI, 5 basic features
-5. **Frontend-Backend Integration Testing** - E2E validation, Multi-user testing
-6. **Deployment to Production** - Vercel + Backend deployment, Neon DB
-7. **UI Polish & Advanced Features** - Styling, animations, accessibility
+5. **Better Auth + FastAPI JWT Integration** - JWKS verification, Frontend-Backend connection
+6. **Frontend-Backend Integration Testing** - E2E validation, Multi-user testing
+7. **Deployment to Production** - Vercel + Backend deployment, Neon DB
+8. **UI Polish & Advanced Features** - Styling, animations, accessibility
 
 ---
 
@@ -558,14 +559,369 @@ colors: {
 - Passes WAVE accessibility
 - No console errors
 
-**SKILLS:**  
+**SKILLS:**
 - @.claude/skills/custom/frontend-design-system
 - @.claude/skills/mjs/building-nextjs-apps
 - @.claude/skills/panaversity/theme-factory
 
 ---
 
-## Spec 5: Frontend-Backend Integration Testing
+## Spec 5: Better Auth + FastAPI JWT Integration
+
+### `/sp.specify` Prompt (Concise)
+
+```
+Create specification for Better Auth + FastAPI JWT Integration to connect frontend with backend APIs.
+
+**Context:**
+- Builds on Spec 1-4 (auth foundation, database, API endpoints, frontend UI with mock data)
+- Backend has complete REST API (14 endpoints) with custom JWT auth
+- Frontend has complete UI with mock data in React contexts
+- This spec: Replace custom JWT with Better Auth JWKS verification, connect frontend to backend
+
+**User Stories (Priority Order):**
+
+1. **As a new user**, I want to register via Better Auth so I can access the todo app
+   - Given I'm on the registration page
+   - When I provide email, password, and name
+   - Then Better Auth creates my account and issues a JWT token
+   - And I can access protected backend endpoints with this token
+
+2. **As a registered user**, I want to log in and access my tasks
+   - Given I have an account
+   - When I log in with Better Auth
+   - Then I receive a JWT token
+   - And the frontend includes it in all API requests
+   - And the backend validates it via JWKS
+
+3. **As an authenticated user**, I want to manage tasks via the UI
+   - Given I'm logged in
+   - When I create/update/delete tasks in the frontend
+   - Then the frontend calls backend APIs with Authorization header
+   - And my tasks persist to the database
+   - And all filters/search/sort work with real data
+
+4. **As the system**, I want to validate JWT tokens securely
+   - Given a request with JWT token
+   - When the backend receives it
+   - Then it fetches Better Auth JWKS (with caching)
+   - And validates the EdDSA/Ed25519 signature
+   - And extracts user_id for authorization
+
+5. **As the system**, I want to enforce user isolation
+   - Given two users with valid JWT tokens
+   - When User A tries to access User B's tasks
+   - Then the backend returns 403 Forbidden
+   - And user_id from JWT is validated against URL path
+
+**Requirements:**
+
+**Backend Changes:**
+- FR-001: Backend MUST replace custom JWT validation in `/backend/src/api/deps.py` with Better Auth JWKS verification using EdDSA/Ed25519
+- FR-002: Backend MUST fetch and cache Better Auth JWKS from `BETTER_AUTH_JWKS_URL` environment variable with 1-hour TTL
+- FR-003: Backend MUST maintain existing `verify_user_match()` dependency for user isolation (JWT user_id matches URL {user_id})
+- FR-004: Backend MUST preserve all 14 existing endpoint signatures (no breaking changes)
+- FR-005: JWKS fetch failures MUST retry 3 times with exponential backoff before returning 503
+
+**Frontend Changes:**
+- FR-006: Frontend MUST configure Better Auth client with JWT plugin and EdDSA algorithm
+- FR-007: Frontend MUST implement login/register flows using Better Auth SDK
+- FR-008: Frontend MUST create API client module (`lib/api-client.ts`) that includes `Authorization: Bearer <token>` header on all requests
+- FR-009: Frontend MUST replace all mock data in TaskContext and TagContext with real API calls to backend endpoints
+- FR-010: Frontend MUST map filter operations to backend query parameters (status, priority, tags, date range, search, sort)
+- FR-011: Frontend MUST handle API errors gracefully (401→login redirect, 403/404/422/500→toast notifications)
+
+**Integration:**
+- FR-012: Integration MUST preserve all existing features (filtering, sorting, search, tag management, task CRUD, priorities, due dates, reminders, recurrence)
+- FR-013: Frontend-backend communication MUST use CORS with frontend domain allowlist
+
+**Success Criteria:**
+- SC-001: User can register via Better Auth, receive JWT, and access dashboard
+- SC-002: Authenticated user can perform full task CRUD via frontend with data persisted to database
+- SC-003: JWT validation completes in <50ms per request (JWKS cache hit)
+- SC-004: Frontend handles 401 errors by redirecting to login page
+- SC-005: All filters/search/sort work correctly with real backend data
+- SC-006: User isolation verified (cross-user access blocked with 403)
+- SC-007: JWKS cache reduces backend load (>95% cache hit rate after warmup)
+
+**Key Entities:**
+- Better Auth JWT Token: Claims (user_id, email, exp, iat), EdDSA/Ed25519 signature
+- JWKS: JSON Web Key Set with public keys for JWT verification, 1-hour cache TTL
+- API Client: TypeScript module for authenticated HTTP requests with error handling
+
+**Frontend-to-Backend Endpoint Mapping:**
+```
+Tasks:
+  useTasks().createTask() → POST /api/v1/{user_id}/tasks
+  useTasks().tasks → GET /api/v1/{user_id}/tasks?status&priority&tag&search&sort_by&order
+  useTasks().updateTask() → PATCH /api/v1/{user_id}/tasks/{id}
+  useTasks().completeTask() → PATCH /api/v1/{user_id}/tasks/{id}/complete
+  useTasks().deleteTask() → DELETE /api/v1/{user_id}/tasks/{id}
+
+Tags:
+  useTags().createTag() → POST /api/v1/{user_id}/tags
+  useTags().tags → GET /api/v1/{user_id}/tags
+  useTags().updateTag() → PUT /api/v1/{user_id}/tags/{id}
+  useTags().deleteTag() → DELETE /api/v1/{user_id}/tags/{id}
+
+Filters (transform to query params):
+  status: "active"→"?status=incomplete", "completed"→"?status=complete", "all"→omit
+  priority: "low|medium|high"→"?priority=...", "all"→omit
+  selectedTags: ["Work","Personal"]→"?tag=Work&tag=Personal"
+  searchQuery→"?search=...", sortBy→"?sort_by=...", sortOrder→"?order=..."
+```
+
+**Edge Cases:**
+- Expired JWT tokens (backend returns 401, frontend redirects to login)
+- Invalid JWT signatures (JWKS verification fails, 401 response)
+- User_id mismatch (JWT user_id ≠ URL {user_id}, 403 response)
+- JWKS endpoint unreachable (retry with backoff, fallback to 503)
+- Network errors (timeout, connection refused - show retry toast)
+- Concurrent tab sessions (shared Better Auth session state)
+- CORS preflight failures (misconfigured allowlist)
+
+**Testing Strategy:**
+1. **Unit Tests:** JWKS fetch/cache logic, JWT verification (valid/invalid/expired), API client header construction
+2. **Integration Tests:** Login flow (Better Auth→JWT→API access), task CRUD with database, user isolation, token expiration handling
+3. **Security Tests:** JWT signature tampering, user_id mismatch returns 403, missing Authorization header returns 401, CORS policy enforcement
+4. **Performance Tests:** JWT validation latency (<50ms), JWKS cache hit rate (>95%), API response times with auth overhead
+
+**Coverage Target:** 80%+ authentication modules, 70%+ overall
+
+**SKILLS:**
+- @.claude/skills/panaversity/betterauth-fastapi-jwt-bridge (PRIMARY - JWKS verification approach)
+- @.claude/skills/custom/fastapi-expert (async patterns, dependency injection, middleware)
+- @.claude/skills/custom/sqlmodel-expert (database queries, user_id filtering)
+- @.claude/skills/custom/frontend-design-system (API client patterns, error handling)
+
+**Assumptions:**
+- Better Auth JWKS endpoint is accessible at runtime (https://<domain>/.well-known/jwks.json)
+- Frontend and backend share same user_id format (UUID or integer)
+- Database schema from Spec 2 is deployed and functional
+- Existing backend endpoints from Spec 3 are operational
+- Better Auth uses EdDSA/Ed25519 for JWT signing (per skill documentation)
+
+**Dependencies:**
+- Spec 1: Auth foundation (User model, basic auth setup)
+- Spec 2: Database schema (tasks, tags, task_tags tables)
+- Spec 3: REST API endpoints (14 endpoints fully implemented)
+- Spec 4: Frontend UI (components, contexts with mock data)
+- Better Auth library (frontend: `better-auth`, backend: `python-jose[cryptography]` or `pyjwt`)
+
+**Out of Scope:**
+- Token refresh mechanism (Phase III enhancement)
+- OAuth providers (Google, GitHub - Phase III)
+- Multi-factor authentication (Phase V security)
+- Session management beyond JWT tokens
+- Password reset flow (Phase III)
+- Real-time WebSocket notifications (Phase V)
+
+**Non-Functional Requirements:**
+- **Performance:** JWT validation <50ms, API requests <500ms p95
+- **Security:** HTTPS required, tokens expire in 24 hours, JWKS cache with 1-hour TTL
+- **Reliability:** JWKS fetch retry (3 attempts, exponential backoff), graceful degradation on cache failures
+```
+
+### `/sp.plan` Prompt (Concise)
+
+```
+Create implementation plan for Better Auth + FastAPI JWT Integration.
+
+**Input:** specs/005-betterauth-integration/spec.md
+
+**Stack:**
+- Backend: FastAPI, python-jose[cryptography] or pyjwt, httpx (JWKS fetch), asyncio
+- Frontend: Next.js 16+, Better Auth SDK, TypeScript, React Query (optional)
+- Auth: Better Auth JWKS verification (EdDSA/Ed25519)
+- Testing: pytest, pytest-asyncio, Vitest, React Testing Library, MSW
+
+**Architecture:**
+
+**Backend Changes:**
+1. **JWKS Service** (`/backend/src/services/jwks.py`):
+   - Async JWKS fetcher with httpx
+   - In-memory cache with 1-hour TTL (asyncio.Lock)
+   - Retry logic (3 attempts, exponential backoff)
+   - EdDSA/Ed25519 JWT verification
+
+2. **Auth Dependencies** (`/backend/src/api/deps.py`):
+   - Replace `decode_access_token()` with `verify_better_auth_jwt()`
+   - Update `get_current_user()` to use JWKS verification
+   - Keep `verify_user_match()` unchanged
+   - Extract user_id from JWT claims
+
+3. **Configuration**:
+   - Add `BETTER_AUTH_JWKS_URL`, `BETTER_AUTH_ISSUER` to settings
+   - Update `.env.example`
+
+4. **No Changes**: API endpoints (already protected by dependencies)
+
+**Frontend Changes:**
+1. **Better Auth Config** (`/frontend/src/lib/auth.ts`):
+   - Initialize Better Auth with JWT plugin
+   - Configure EdDSA algorithm
+   - Set backend API base URL
+
+2. **API Client** (`/frontend/src/lib/api-client.ts`):
+   - Base HTTP client (fetch or axios)
+   - Auto-inject Authorization header (from Better Auth session)
+   - Error handling (401→redirect, retry logic)
+   - Type definitions for requests/responses
+
+3. **Context Updates**:
+   - TaskContext: Replace mock with API calls, transform filters to query params
+   - TagContext: Replace mock with API calls
+   - FilterContext: Map to server-side filtering
+
+4. **Auth Flow** (`/frontend/src/app/auth/`):
+   - Login/Register: Use Better Auth SDK
+   - Token handling on success
+   - Redirect to dashboard
+
+**Implementation Phases:**
+
+**Phase A: Backend JWKS (P0)**
+1. JWKS service with fetch/cache/verify
+2. Update auth dependencies
+3. Unit tests (mock JWKS, valid/invalid/expired tokens)
+4. Integration tests (real JWT verification)
+
+**Phase B: Frontend API Client (P0)**
+1. Better Auth client configuration
+2. API client with auth header injection
+3. Error handling middleware
+4. Unit tests (headers, error transforms)
+
+**Phase C: Data Integration (P0)**
+1. Update TaskContext with API calls
+2. Update TagContext with API calls
+3. Transform filter state to query params
+4. Add loading/error states
+5. Integration tests (mock API responses)
+
+**Phase D: E2E Testing (P1)**
+1. Login flow (Better Auth→JWT→API)
+2. Task CRUD with database
+3. User isolation (two users)
+4. Token expiration handling
+5. Error scenarios
+
+**Research Focus:**
+- Better Auth JWT plugin configuration (EdDSA, JWKS endpoint)
+- JWKS verification libraries (python-jose vs pyjwt)
+- JWKS caching strategies (lru_cache vs Redis)
+- Frontend token refresh patterns
+- Error handling UX (toast notifications, retry)
+- CORS configuration
+
+**Component Breakdown:**
+
+**Backend Files:**
+```
+backend/src/
+├── services/
+│   ├── jwks.py                 # NEW: JWKS fetch/cache
+│   └── jwt_verification.py     # NEW: JWT verify (from @betterauth-fastapi-jwt-bridge)
+├── api/deps.py                 # UPDATE: Replace JWT logic
+├── core/
+│   ├── config.py               # UPDATE: Add JWKS env vars
+│   └── security.py             # KEEP: Password hashing (no changes)
+└── tests/
+    ├── unit/
+    │   ├── test_jwks.py        # NEW: JWKS tests
+    │   └── test_jwt_verify.py  # NEW: JWT verification tests
+    ├── integration/
+    │   └── test_auth_flow.py   # NEW: E2E auth tests
+    └── fixtures/jwks_mock.json # NEW: Mock JWKS
+```
+
+**Frontend Files:**
+```
+frontend/src/
+├── lib/
+│   ├── auth.ts              # NEW: Better Auth config
+│   ├── api-client.ts        # NEW: HTTP client with auth
+│   └── api/
+│       ├── tasks.ts         # NEW: Task API functions
+│       └── tags.ts          # NEW: Tag API functions
+├── contexts/
+│   ├── TaskContext.tsx      # UPDATE: Replace mock
+│   └── TagContext.tsx       # UPDATE: Replace mock
+├── app/auth/
+│   ├── login/page.tsx       # UPDATE: Better Auth flow
+│   └── register/page.tsx    # UPDATE: Better Auth flow
+└── __tests__/
+    └── integration/
+        └── auth-flow.test.ts # NEW: E2E test
+```
+
+**Key Patterns:**
+- JWKS caching: lru_cache or time-based cache with 1-hour TTL
+- JWT verification: EdDSA signature validation, claims extraction
+- Error handling: Retry with exponential backoff, fallback to 503
+- API client: Interceptor pattern for auth header injection
+- Filter transform: Frontend state → backend query params
+
+**Performance Targets:**
+- JWKS fetch (cache miss): <100ms
+- JWKS fetch (cache hit): <1ms
+- JWT verification: <50ms per request
+- API calls with auth: <500ms p95
+- JWKS cache hit rate: >95%
+
+**Security Checklist (from @betterauth-fastapi-jwt-bridge):**
+- [ ] JWT signature verification (EdDSA/Ed25519)
+- [ ] Token expiration checked (exp claim)
+- [ ] Issuer validation (iss claim)
+- [ ] JWKS fetched over HTTPS only
+- [ ] JWKS cache with TTL (1 hour max)
+- [ ] Retry logic for JWKS failures
+- [ ] CORS configured (frontend domain only)
+- [ ] Secrets in environment variables
+
+**Testing Strategy:**
+- Unit (60%): JWKS fetch, JWT decode, token validation, API client
+- Integration (30%): Login flow, API calls, database queries
+- E2E (10%): Full user journey (register→login→create task→logout)
+- Coverage target: ≥80% overall, ≥90% auth modules
+
+**Deliverables:**
+1. JWKS verification module with caching
+2. Updated backend auth dependencies
+3. Better Auth client configuration
+4. API client module with error handling
+5. Updated TaskContext and TagContext with API calls
+6. Comprehensive test suite (unit + integration + E2E)
+7. Performance validation (JWT <50ms, cache >95%)
+8. Documentation (quickstart.md, environment variables)
+
+**Migration Strategy:**
+- Backend deploys first (supports both custom JWT and Better Auth)
+- Frontend deploys second (switches to Better Auth)
+- Backward compatibility for 1 release cycle
+- Monitor error rates and rollback if needed
+
+**Acceptance Criteria:**
+- [ ] User can register/login via Better Auth
+- [ ] JWT validation via JWKS (<50ms)
+- [ ] All CRUD operations work with authentication
+- [ ] User isolation enforced (403 on cross-user access)
+- [ ] Error handling tested (401, 403, network)
+- [ ] JWKS cache hit rate >95%
+- [ ] Test coverage ≥80%
+- [ ] Security checklist 100% complete
+
+**SKILLS:**
+- @.claude/skills/panaversity/betterauth-fastapi-jwt-bridge (PRIMARY - JWKS approach, security checklist)
+- @.claude/skills/custom/fastapi-expert (async patterns, dependency injection)
+- @.claude/skills/custom/sqlmodel-expert (database queries, user_id filtering)
+- @.claude/skills/custom/frontend-design-system (API client, error handling)
+```
+
+
+---
+
+## Spec 6: Frontend-Backend Integration Testing
 
 ### `/sp.specify` Prompt
 
@@ -625,14 +981,15 @@ Create a specification for end-to-end integration testing of the full stack.
 - Performance testing (load tests)
 - Security penetration testing
 - Browser compatibility testing (focus on Chrome first)
+
 ```
 
 ### `/sp.plan` Prompt
 
 ```
-Create an implementation plan for Spec 5: Frontend-Backend Integration Testing.
+Create an implementation plan for Spec 6: Frontend-Backend Integration Testing.
 
-**Input:** specs/005-integration-testing/spec.md
+**Input:** specs/006-integration-testing/spec.md
 
 **Technical Context:**
 - E2E Framework: Playwright or Cypress
@@ -665,7 +1022,7 @@ Create an implementation plan for Spec 5: Frontend-Backend Integration Testing.
 
 ---
 
-## Spec 6: Deployment to Production
+## Spec 7: Deployment to Production
 
 ### `/sp.specify` Prompt
 
@@ -736,9 +1093,9 @@ Create a specification for deploying the full-stack application to production.
 ### `/sp.plan` Prompt
 
 ```
-Create an implementation plan for Spec 6: Deployment to Production.
+Create an implementation plan for Spec 7: Deployment to Production.
 
-**Input:** specs/006-deployment-production/spec.md
+**Input:** specs/007-deployment-production/spec.md
 
 **Technical Context:**
 - Frontend: Vercel (free tier, Next.js optimized)
@@ -771,7 +1128,7 @@ Create an implementation plan for Spec 6: Deployment to Production.
 
 ---
 
-## Spec 7: UI Polish & Advanced Features
+## Spec 8: UI Polish & Advanced Features
 
 ### `/sp.specify` Prompt
 
@@ -779,7 +1136,7 @@ Create an implementation plan for Spec 6: Deployment to Production.
 Create a specification for UI polish and advanced features to enhance user experience.
 
 **Context:**
-- Core functionality complete (Specs 1-6)
+- Core functionality complete (Specs 1-7)
 - This spec adds professional polish for demo and submission
 - Goal: Impressive UI for hackathon judges (90-second demo video)
 
@@ -843,9 +1200,9 @@ Create a specification for UI polish and advanced features to enhance user exper
 ### `/sp.plan` Prompt
 
 ```
-Create an implementation plan for Spec 7: UI Polish & Advanced Features.
+Create an implementation plan for Spec 8: UI Polish & Advanced Features.
 
-**Input:** specs/007-ui-polish-advanced/spec.md
+**Input:** specs/008-ui-polish-advanced/spec.md
 
 **Technical Context:**
 - Framework: Next.js 16+ (already built)
@@ -902,10 +1259,11 @@ Create an implementation plan for Spec 7: UI Polish & Advanced Features.
 | 2 | Complete Database Schema (4 tables) | 6-8 hours |
 | 3 | **Complete API (14 endpoints, all features)** | **12-16 hours** |
 | 4 | Frontend UI (all features + tags + filters) | 12-16 hours |
-| 5 | Integration Testing (comprehensive) | 6-8 hours |
-| 6 | Deployment | 3-5 hours |
-| 7 | UI Polish | 6-10 hours |
-| **Total** | **Full Phase II (Complete App)** | **51-71 hours** |
+| 5 | Better Auth Integration (JWKS verification) | 8-12 hours |
+| 6 | Integration Testing (comprehensive) | 6-8 hours |
+| 7 | Deployment | 3-5 hours |
+| 8 | UI Polish | 6-10 hours |
+| **Total** | **Full Phase II (Complete App)** | **59-83 hours** |
 
 **Note:**
 - Spec 2 includes complete schema (tasks, tags, task_tags, notifications) to avoid migrations in Phase V.
@@ -925,7 +1283,7 @@ All prompts align with:
 **Next Steps:**
 1. Start with Spec 1 prompts
 2. Follow the cycle: Specify → Plan → Tasks → Implement
-3. Complete all 7 specs sequentially
+3. Complete all 8 specs sequentially
 4. Submit by December 14, 2025
 
 **Good luck with Phase II! 🚀**
