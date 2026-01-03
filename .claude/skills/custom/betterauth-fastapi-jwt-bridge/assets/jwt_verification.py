@@ -189,9 +189,10 @@ def extract_user_from_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
     """
     Extract user information from JWT payload.
 
-    JWT payload structure from Better Auth:
+    JWT payload structure from Better Auth (with UUID integration):
     {
-        "sub": "user_id",
+        "sub": "user_abc123",              # Better Auth String ID
+        "uuid": "a1b2c3d4-e5f6-...",      # Application UUID (custom claim) ⭐
         "email": "user@example.com",
         "name": "User Name",
         "iat": 1234567890,
@@ -204,12 +205,13 @@ def extract_user_from_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
         payload: Decoded JWT payload
 
     Returns:
-        User information dictionary
+        User information dictionary with both String ID and UUID
 
     Raises:
         HTTPException: If required claims are missing
     """
     user_id = payload.get("sub")
+    user_uuid = payload.get("uuid")
 
     if not user_id:
         raise HTTPException(
@@ -218,9 +220,17 @@ def extract_user_from_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    if not user_uuid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token missing UUID (uuid claim)",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     return {
-        "user_id": user_id,
+        "user_id": user_id,     # Better Auth String ID
+        "uuid": user_uuid,      # Application UUID ⭐
         "email": payload.get("email"),
         "name": payload.get("name"),
-        "payload": payload,  # Include full payload for advanced use cases
+        "payload": payload,     # Include full payload for advanced use cases
     }

@@ -30,7 +30,7 @@ class Tag(SQLModel, table=True):
 
     # Foreign key to users table with ON DELETE CASCADE
     user_id: UUID = Field(
-        foreign_key="users.id",
+        foreign_key="user.uuid",
         nullable=False,
         index=True,
         ondelete="CASCADE",

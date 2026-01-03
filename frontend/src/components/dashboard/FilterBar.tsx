@@ -2,6 +2,7 @@
 
 /**
  * FilterBar Component - Task Filtering and Search Controls
+ * T031: Updated to integrate with TaskContext.fetchTasks and trigger API calls
  *
  * Built following skills:
  * - @.claude/skills/custom/frontend-design-system (Form controls, responsive design)
@@ -16,9 +17,10 @@
  * - Reset filters button
  * - Responsive layout (stacks on mobile)
  * - Filter count indicator
+ * - Real-time API integration (T031)
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, X, SlidersHorizontal, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -40,6 +42,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { useFilter } from "@/contexts/FilterContext";
 import { useTags } from "@/contexts/TagContext";
+import { useTasks } from "@/contexts/TaskContext";
 
 interface FilterBarProps {
   onCreateTask: () => void;
@@ -60,12 +63,32 @@ export function FilterBar({ onCreateTask }: FilterBarProps) {
     sortOrder,
     setSortOrder,
     resetFilters,
+    pagination,
+    setPaginationMeta,
+    toBackendQuery,
   } = useFilter();
 
   const { tags } = useTags();
   const activeTags = tags.filter((t) => !t.archived);
 
+  const { refreshTasks } = useTasks();
+
   const [showFilters, setShowFilters] = useState(false);
+
+  // T031: Trigger API call when filters change
+  useEffect(() => {
+    const fetchWithFilters = async () => {
+      const filters = toBackendQuery();
+      await refreshTasks(filters);
+    };
+
+    // Debounce search query (wait 300ms after typing stops)
+    const timeoutId = setTimeout(() => {
+      fetchWithFilters();
+    }, searchQuery ? 300 : 0);
+
+    return () => clearTimeout(timeoutId);
+  }, [status, priority, selectedTags, searchQuery, sortBy, sortOrder, pagination.page, pagination.limit]);
 
   // Count active filters
   const activeFilterCount =
@@ -203,20 +226,20 @@ export function FilterBar({ onCreateTask }: FilterBarProps) {
                     {activeTags.map((tag) => (
                       <div key={tag.id} className="flex items-center space-x-2">
                         <Checkbox
-                          checked={selectedTags.includes(tag.id)}
+                          checked={selectedTags.includes(tag.id.toString()) || selectedTags.includes(tag.id as any)}
                           onCheckedChange={(checked) => {
                             if (checked) {
-                              setSelectedTags([...selectedTags, tag.id]);
+                              setSelectedTags([...selectedTags, tag.id.toString()]);
                             } else {
                               setSelectedTags(
-                                selectedTags.filter((id) => id !== tag.id)
+                                selectedTags.filter((id) => id !== tag.id.toString() && id !== tag.id)
                               );
                             }
                           }}
                         />
                         <span
                           className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-white"
-                          style={{ backgroundColor: tag.color }}
+                          style={{ backgroundColor: tag.color || "#3B82F6" }}
                         >
                           {tag.name}
                         </span>
@@ -257,12 +280,12 @@ export function FilterBar({ onCreateTask }: FilterBarProps) {
               </Badge>
             )}
             {selectedTags.map((tagId) => {
-              const tag = tags.find((t) => t.id === tagId);
+              const tag = tags.find((t) => t.id.toString() === tagId.toString());
               if (!tag) return null;
               return (
                 <Badge
                   key={tagId}
-                  style={{ backgroundColor: tag.color, color: "white" }}
+                  style={{ backgroundColor: tag.color || "#3B82F6", color: "white" }}
                 >
                   {tag.name}
                   <button

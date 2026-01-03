@@ -47,7 +47,7 @@ import { TaskFormData } from "@/lib/validation-schemas";
 import { toast } from "sonner";
 
 export function TaskList() {
-  const { tasks, isLoading, updateTask, deleteTask, completeTask } = useTasks();
+  const { tasks, isLoading, refreshTasks, updateTask, deleteTask, completeTask } = useTasks();
   const {
     status,
     priority,
@@ -61,7 +61,7 @@ export function TaskList() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [deletingTask, setDeletingTask] = useState<Task | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<number | null>(null);
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -80,6 +80,21 @@ export function TaskList() {
 
   // Filter and sort tasks
   const filteredTasks = useMemo(() => {
+    console.log('[TaskList] Filtering tasks:', {
+      tasksCount: Array.isArray(tasks) ? tasks.length : 'not array',
+      status,
+      priority,
+      selectedTags,
+      searchQuery,
+      tasks: tasks,
+    });
+
+    // Safety check: ensure tasks is an array
+    if (!Array.isArray(tasks)) {
+      console.log('[TaskList] Tasks is not array, returning empty');
+      return [];
+    }
+
     let filtered = [...tasks];
 
     // Filter by status
@@ -94,10 +109,12 @@ export function TaskList() {
       filtered = filtered.filter((t) => t.priority === priority);
     }
 
-    // Filter by tags
+    // Filter by tags (tags are now objects with id, name, color)
     if (selectedTags.length > 0) {
       filtered = filtered.filter((t) =>
-        selectedTags.some((tag) => t.tags.includes(tag))
+        Array.isArray(t.tags) && selectedTags.some((tagId) =>
+          t.tags.some((tag) => tag.id.toString() === tagId || tag.name === tagId)
+        )
       );
     }
 
@@ -141,7 +158,9 @@ export function TaskList() {
           break;
         case "priority":
           const priorityOrder = { high: 3, medium: 2, low: 1 };
-          comparison = priorityOrder[b.priority] - priorityOrder[a.priority];
+          const aPriority = a.priority ? priorityOrder[a.priority] : 0;
+          const bPriority = b.priority ? priorityOrder[b.priority] : 0;
+          comparison = bPriority - aPriority;
           break;
         case "due_date":
           if (!a.due_date && !b.due_date) comparison = 0;
@@ -158,11 +177,17 @@ export function TaskList() {
       return sortOrder === "asc" ? comparison : -comparison;
     });
 
+    console.log('[TaskList] After filtering and sorting:', {
+      originalCount: tasks.length,
+      filteredCount: filtered.length,
+      filtered: filtered,
+    });
+
     return filtered;
   }, [tasks, status, priority, selectedTags, dateRange, searchQuery, sortBy, sortOrder]);
 
   // Handlers
-  const handleComplete = async (taskId: string, completed: boolean) => {
+  const handleComplete = async (taskId: number, completed: boolean) => {
     try {
       await completeTask(taskId, completed);
       toast.success(completed ? "Task completed!" : "Task marked as incomplete");
@@ -184,18 +209,63 @@ export function TaskList() {
 
     setIsSubmitting(true);
     try {
+      // Update task fields
       await updateTask(editingTask.id, {
         title: data.title,
         description: data.description || undefined,
         priority: data.priority,
         due_date: data.due_date || undefined,
-        reminder_time: data.reminder_time || undefined,
-        recurrence: data.recurrence,
-        tags: data.tags,
+        reminder_at: data.reminder_at || undefined,
+        recurrence_pattern: data.recurrence_pattern || undefined,
+        tags: [], // Backend doesn't accept tags in update, must use separate endpoint
       });
+
+      // Handle tag updates if changed
+      if (data.tags) {
+        const { getUserUuidFromSession } = await import("@/lib/get-user-uuid");
+        const { apiClient } = await import("@/lib/api-client");
+        const userId = await getUserUuidFromSession();
+
+        if (userId) {
+          // Get current tag IDs from task
+          const currentTagIds = Array.isArray(editingTask.tags)
+            ? editingTask.tags.map(t => t.id)
+            : [];
+          const newTagIds = data.tags;
+
+          // Find tags to add and remove
+          const tagsToAdd = newTagIds.filter(id => !currentTagIds.includes(id));
+          const tagsToRemove = currentTagIds.filter(id => !newTagIds.includes(id));
+
+          // Remove old tags
+          for (const tagId of tagsToRemove) {
+            try {
+              await apiClient.delete(`/api/v1/${userId}/tasks/${editingTask.id}/tags/${tagId}`);
+            } catch (err) {
+              console.error(`Failed to remove tag ${tagId}:`, err);
+            }
+          }
+
+          // Add new tags
+          for (const tagId of tagsToAdd) {
+            try {
+              await apiClient.post(`/api/v1/${userId}/tasks/${editingTask.id}/tags`, {
+                tag_id: tagId,
+              });
+            } catch (err) {
+              console.error(`Failed to add tag ${tagId}:`, err);
+            }
+          }
+        }
+      }
+
+      // Refresh task list to show updated tags
+      await refreshTasks();
+
       toast.success("Task updated successfully");
       setEditingTask(null);
     } catch (error) {
+      console.error("Failed to update task:", error);
       toast.error("Failed to update task");
     } finally {
       setIsSubmitting(false);
@@ -219,7 +289,7 @@ export function TaskList() {
 
   // Drag and drop handlers
   const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
+    setActiveId(event.active.id as number);
   };
 
   const handleDragEnd = (_event: DragEndEvent) => {
@@ -267,14 +337,14 @@ export function TaskList() {
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
           {searchQuery || selectedTags.length > 0 || dateRange.start || dateRange.end
             ? "No tasks found"
-            : tasks.length === 0
+            : (!tasks || tasks.length === 0)
             ? "No tasks yet"
             : "No tasks match your filters"}
         </h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 max-w-sm">
           {searchQuery || selectedTags.length > 0 || dateRange.start || dateRange.end
             ? "Try adjusting your filters or search query"
-            : tasks.length === 0
+            : (!tasks || tasks.length === 0)
             ? "Create your first task to get started"
             : "Try changing your filter settings"}
         </p>

@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
-from .logging import set_request_id, get_request_id
+from .logging import set_correlation_id, get_correlation_id
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
 
         # Set in context for logging
-        set_request_id(request_id)
+        set_correlation_id(request_id)
 
         # Store in request state
         request.state.request_id = request_id
@@ -173,8 +173,8 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
                     "error": "Internal server error",
                     "code": "INTERNAL_SERVER_ERROR",
                     "status": 500,
-                    "request_id": get_request_id(),
+                    "request_id": get_correlation_id(),
                     "message": "An unexpected error occurred. Please try again later.",
                 },
-                headers={"X-Request-ID": get_request_id()},
+                headers={"X-Request-ID": get_correlation_id()},
             )

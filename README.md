@@ -297,6 +297,216 @@ alembic history
 - Natural language task creation
 - OpenAI ChatKit integration
 
+## Deployment
+
+### Environment Variables
+
+#### Backend (.env)
+
+```bash
+# Database (required)
+DATABASE_URL=postgresql+asyncpg://user:password@host:5432/database
+
+# Better Auth JWT Configuration (required)
+BETTER_AUTH_SECRET=<generate-32-char-secret>  # Generate with: openssl rand -hex 32
+BETTER_AUTH_JWKS_URL=http://localhost:3000/.well-known/jwks.json
+BETTER_AUTH_ISSUER=http://localhost:3000
+
+# CORS Configuration (required)
+FRONTEND_URL=http://localhost:3000  # Update for production
+CORS_ORIGINS=http://localhost:3000  # Comma-separated list for multiple origins
+
+# Server Configuration (optional)
+HOST=0.0.0.0
+PORT=8000
+LOG_LEVEL=INFO
+
+# Phase V (deferred)
+# SENTRY_DSN=<your-sentry-dsn>  # External monitoring
+# DATADOG_API_KEY=<your-datadog-key>
+```
+
+#### Frontend (.env.local)
+
+```bash
+# Database (required - same as backend)
+DATABASE_URL=postgresql://user:password@host:5432/database
+
+# Better Auth (required - same secret as backend)
+BETTER_AUTH_SECRET=<same-as-backend-secret>
+
+# Application URLs (required)
+NEXT_PUBLIC_APP_URL=http://localhost:3000  # Frontend URL
+NEXT_PUBLIC_BACKEND_URL=http://localhost:8000/api/v1  # Backend API URL
+
+# Production: Update URLs
+# NEXT_PUBLIC_APP_URL=https://yourdomain.com
+# NEXT_PUBLIC_BACKEND_URL=https://api.yourdomain.com/api/v1
+```
+
+### CORS Configuration
+
+The backend uses a strict CORS policy for security:
+
+**Development** (`backend/.env`):
+```bash
+FRONTEND_URL=http://localhost:3000
+```
+
+**Production** (`backend/.env`):
+```bash
+FRONTEND_URL=https://yourdomain.com  # Your production frontend URL
+```
+
+**Multiple origins** (staging + production):
+```bash
+FRONTEND_URL=https://yourdomain.com,https://staging.yourdomain.com
+```
+
+The CORS middleware (in `backend/src/main.py`) is configured to:
+- Allow credentials (cookies for JWT)
+- Expose `X-Correlation-ID` header for debugging
+- Only allow specific origins (no wildcards in production)
+
+### Better Auth Setup
+
+Better Auth is configured with JWT plugin for stateless authentication:
+
+#### Backend JWT Configuration
+
+1. **Generate secret key**:
+   ```bash
+   openssl rand -hex 32
+   ```
+
+2. **Set environment variables** in `backend/.env`:
+   ```bash
+   BETTER_AUTH_SECRET=<generated-secret>
+   BETTER_AUTH_JWKS_URL=http://localhost:3000/.well-known/jwks.json
+   BETTER_AUTH_ISSUER=http://localhost:3000
+   ```
+
+3. **JWT verification** is handled by `backend/src/services/jwks.py`:
+   - Fetches public keys from JWKS endpoint
+   - Caches keys for 1 hour (TTL)
+   - Verifies EdDSA/Ed25519 signatures
+   - Validates issuer and expiration
+
+#### Frontend Better Auth Configuration
+
+The frontend is configured in `frontend/src/lib/auth.ts`:
+
+```typescript
+import { betterAuth } from "better-auth";
+import { jwt } from "better-auth/plugins";
+
+export const auth = betterAuth({
+  database: { ... },
+  plugins: [
+    jwt({
+      algorithm: "EdDSA",  // Ed25519 for fast verification
+      issuer: process.env.NEXT_PUBLIC_APP_URL,
+      expiresIn: "1h",
+      jwks: { enabled: true },  // Enable JWKS endpoint
+    }),
+  ],
+});
+```
+
+**Key features**:
+- EdDSA/Ed25519 algorithm (10-20x faster than RS256)
+- JWT stored in httpOnly cookies (secure by default)
+- 1-hour token expiration
+- JWKS endpoint at `/.well-known/jwks.json`
+
+### Production Deployment
+
+#### Vercel (Frontend)
+
+1. **Connect repository** to Vercel
+2. **Set environment variables**:
+   - `DATABASE_URL`
+   - `BETTER_AUTH_SECRET`
+   - `NEXT_PUBLIC_APP_URL=https://yourdomain.com`
+   - `NEXT_PUBLIC_BACKEND_URL=https://api.yourdomain.com/api/v1`
+
+3. **Deploy**: Automatic on git push
+
+#### Backend Hosting Options
+
+**Option 1: Railway / Render**
+- Auto-deploy from GitHub
+- Set environment variables in dashboard
+- Add PostgreSQL addon or use Neon
+
+**Option 2: Docker + Cloud Run / AWS ECS**
+```dockerfile
+# backend/Dockerfile
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY . .
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+**Option 3: VM (DigitalOcean, AWS EC2)**
+```bash
+# Install dependencies
+sudo apt update && sudo apt install python3.11 python3-pip postgresql-client
+
+# Setup application
+git clone <repo>
+cd backend
+pip install -e .
+
+# Setup systemd service
+sudo nano /etc/systemd/system/todo-backend.service
+
+# Start service
+sudo systemctl enable todo-backend
+sudo systemctl start todo-backend
+```
+
+### Security Checklist
+
+Before deploying to production:
+
+- [ ] Generate new `BETTER_AUTH_SECRET` (don't reuse dev secret)
+- [ ] Update `FRONTEND_URL` to production domain
+- [ ] Enable HTTPS (required for httpOnly cookies)
+- [ ] Set `LOG_LEVEL=WARNING` or `ERROR` in production
+- [ ] Verify CORS allows only production origins
+- [ ] Configure database connection pooling
+- [ ] Enable database SSL (Neon provides this by default)
+- [ ] Set up monitoring (Sentry/DataDog in Phase V)
+
+### Monitoring & Debugging
+
+**Correlation IDs**: Every request has a unique `X-Correlation-ID` header:
+- Generated by frontend (UUID v4)
+- Propagated to backend
+- Included in all logs
+- Shown in error toasts (first 8 chars)
+
+**Structured Logging**: All logs are JSON-formatted per FR-029:
+```json
+{
+  "timestamp": "2025-12-29T10:30:00Z",
+  "level": "INFO",
+  "correlation_id": "abc123...",
+  "user_id": "user_123",
+  "endpoint": "/api/v1/user_123/tasks",
+  "http_method": "GET",
+  "status_code": 200,
+  "duration_ms": 45
+}
+```
+
+**Log Files**:
+- Backend: `backend/logs/app.log` (rotates at 10MB, keeps 5 backups)
+- Frontend: Browser console (development) / Vercel logs (production)
+
 ## Contributing
 
 This project follows Spec-Driven Development:

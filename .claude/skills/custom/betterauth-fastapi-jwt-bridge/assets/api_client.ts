@@ -41,12 +41,13 @@ export class APIError extends Error {
 async function getAuthToken(): Promise<string | null> {
   const session = await authClient.getSession()
 
-  if (!session?.session) {
+  // Better Auth client returns session in session.data.session
+  if (!session?.data?.session) {
     return null
   }
 
-  // Better Auth provides JWT token in session
-  return session.session.token
+  // Better Auth JWT plugin provides token in session
+  return session.data.session.token
 }
 
 /**

@@ -43,6 +43,63 @@ export const auth = betterAuth({
 3. **Key Rotation Support**: Automatic handling of multiple keys
 4. **Standard Compliance**: JWT tokens following RFC 7519
 
+### Database Schema Requirements
+
+**CRITICAL:** Better Auth requires specific database tables with exact schemas.
+
+#### Core Tables (Always Required)
+
+1. **`user` table**: Stores user accounts
+2. **`session` table**: Stores active sessions
+   - **MUST include `token` column** (stores session token used as cookie value)
+   - Common error if missing: `column "token" of relation "session" does not exist`
+3. **`account` table**: Stores OAuth provider accounts
+4. **`verification` table**: Stores email verification tokens
+
+#### JWT Plugin Table (Required When Using jwt() Plugin)
+
+5. **`jwks` table**: Stores public/private key pairs for JWT signing
+   - Created automatically when running Better Auth migrations
+   - Contains: `id`, `publicKey`, `privateKey`, `createdAt`, `expiresAt`
+
+#### Session Table Schema (with Token Column)
+
+```sql
+CREATE TABLE session (
+    id VARCHAR NOT NULL PRIMARY KEY,
+    token VARCHAR NOT NULL,           -- ✅ REQUIRED: Session token
+    "userId" VARCHAR NOT NULL,
+    "expiresAt" TIMESTAMP NOT NULL,
+    "ipAddress" VARCHAR,
+    "userAgent" VARCHAR,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+    "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+    FOREIGN KEY ("userId") REFERENCES "user"(id) ON DELETE CASCADE
+);
+```
+
+#### Running Migrations
+
+**Frontend (Better Auth):**
+```bash
+# Generate migration files
+npx @better-auth/cli generate
+
+# Run migrations
+npx @better-auth/cli migrate
+```
+
+**Backend (FastAPI/Alembic):**
+```bash
+# Create migration manually or use templates from assets/better_auth_migrations.py
+alembic revision -m "create_better_auth_tables"
+
+# Apply migration
+alembic upgrade head
+```
+
+⚠️ **Common Pitfall:** The `token` column is a **core Better Auth requirement**, not specific to the JWT plugin. Many developers miss this when manually creating tables, leading to signup/login failures.
+
 ### JWKS Endpoint Response Format
 
 ```json
@@ -223,7 +280,7 @@ def verify_jwt_token(token: str) -> Dict[str, Any]:
             }
         )
 
-        logger.debug(f"Token verified for user: {payload.get('sub')}")
+        logger.debug(f"Token verified for user: {payload.get('sub')} (UUID: {payload.get('uuid')})")
         return payload
 
     except jwt.ExpiredSignatureError:

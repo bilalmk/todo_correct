@@ -81,12 +81,10 @@ export function TaskCard({ task, onComplete, onEdit, onDelete }: TaskCardProps) 
 
   const dueStatus = getDueStatus(task.due_date, task.completed);
 
-  // Get tag objects for display
-  const taskTags = task.tags
-    .map((tagId) => tags.find((t) => t.id === tagId))
-    .filter(Boolean);
+  // Task tags come as full objects from backend
+  const taskTags = Array.isArray(task.tags) ? task.tags : [];
 
-  // Priority badge config
+  // Priority badge config (priority is optional in backend)
   const priorityConfig = {
     high: {
       color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
@@ -102,7 +100,7 @@ export function TaskCard({ task, onComplete, onEdit, onDelete }: TaskCardProps) 
     },
   };
 
-  const priorityInfo = priorityConfig[task.priority];
+  const priorityInfo = task.priority ? priorityConfig[task.priority] : priorityConfig.low;
   const PriorityIcon = priorityInfo.icon;
 
   return (
@@ -169,11 +167,13 @@ export function TaskCard({ task, onComplete, onEdit, onDelete }: TaskCardProps) 
 
               {/* Metadata row */}
               <div className="flex flex-wrap gap-2 items-center">
-                {/* Priority badge */}
-                <Badge className={`${priorityInfo.color} gap-1`}>
-                  <PriorityIcon className="h-3 w-3" />
-                  {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
-                </Badge>
+                {/* Priority badge (optional field) */}
+                {task.priority && (
+                  <Badge className={`${priorityInfo.color} gap-1`}>
+                    <PriorityIcon className="h-3 w-3" />
+                    {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                  </Badge>
+                )}
 
                 {/* Due date badge */}
                 {task.due_date && (
@@ -195,10 +195,10 @@ export function TaskCard({ task, onComplete, onEdit, onDelete }: TaskCardProps) 
                 )}
 
                 {/* Recurrence badge */}
-                {task.recurrence !== "none" && (
+                {task.recurrence_pattern && task.recurrence_pattern !== "none" && (
                   <Badge variant="secondary" className="gap-1">
                     <Repeat className="h-3 w-3" />
-                    {task.recurrence.charAt(0).toUpperCase() + task.recurrence.slice(1)}
+                    {task.recurrence_pattern.charAt(0).toUpperCase() + task.recurrence_pattern.slice(1)}
                   </Badge>
                 )}
 
@@ -207,12 +207,12 @@ export function TaskCard({ task, onComplete, onEdit, onDelete }: TaskCardProps) 
                   <div className="flex flex-wrap gap-1.5">
                     {taskTags.slice(0, 3).map((tag) => (
                       <span
-                        key={tag!.id}
+                        key={tag.id}
                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-white"
-                        style={{ backgroundColor: tag!.color }}
+                        style={{ backgroundColor: tag.color || "#888888" }}
                       >
                         <TagIcon className="h-2.5 w-2.5" />
-                        {tag!.name}
+                        {tag.name}
                       </span>
                     ))}
                     {taskTags.length > 3 && (

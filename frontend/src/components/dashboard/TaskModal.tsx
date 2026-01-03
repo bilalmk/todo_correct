@@ -80,7 +80,7 @@ export function TaskModal({
   isLoading = false,
 }: TaskModalProps) {
   const { tags } = useTags();
-  const activeTags = tags.filter((t) => !t.archived);
+  const activeTags = Array.isArray(tags) ? tags.filter((t) => !t.archived) : [];
 
   const form = useForm<TaskFormData>({
     resolver: zodResolver(taskSchema),
@@ -89,32 +89,53 @@ export function TaskModal({
       description: "",
       priority: "medium",
       due_date: "",
-      reminder_time: "",
-      recurrence: "none",
+      reminder_at: "", // Match backend field name
+      recurrence_pattern: "none", // Match backend field name
       tags: [],
     },
   });
 
+  // Convert ISO datetime to datetime-local format (YYYY-MM-DDTHH:mm)
+  const toDatetimeLocal = (isoString?: string) => {
+    if (!isoString) return "";
+    try {
+      // Remove timezone and seconds: "2024-12-20T10:00:00.000Z" -> "2024-12-20T10:00"
+      return isoString.slice(0, 16);
+    } catch {
+      return "";
+    }
+  };
+
   // Populate form when editing
   useEffect(() => {
     if (task) {
-      form.reset({
+      console.log('[TaskModal] Editing task:', task);
+      console.log('[TaskModal] Reminder at:', task.reminder_at);
+      console.log('[TaskModal] Recurrence pattern:', task.recurrence_pattern);
+
+      const formData = {
         title: task.title,
         description: task.description || "",
-        priority: task.priority,
+        priority: task.priority || "medium", // Optional field, default to medium
         due_date: task.due_date || "",
-        reminder_time: task.reminder_time || "",
-        recurrence: task.recurrence,
-        tags: task.tags,
-      });
+        reminder_at: toDatetimeLocal(task.reminder_at), // Convert to datetime-local format
+        recurrence_pattern: task.recurrence_pattern || "none", // Backend field name is recurrence_pattern
+        tags: Array.isArray(task.tags) ? task.tags.map((t) => t.id) : [], // Extract tag IDs from objects
+        completed: task.completed, // Include completed status for edit mode
+      };
+
+      console.log('[TaskModal] Resetting form with:', formData);
+      form.reset(formData);
+
+      console.log('[TaskModal] Form values after reset:', form.getValues());
     } else {
       form.reset({
         title: "",
         description: "",
         priority: "medium",
         due_date: "",
-        reminder_time: "",
-        recurrence: "none",
+        reminder_at: "",
+        recurrence_pattern: "none",
         tags: [],
       });
     }
@@ -197,7 +218,7 @@ export function TaskModal({
                   <FormLabel>Priority</FormLabel>
                   <Select
                     onValueChange={field.onChange}
-                    defaultValue={field.value}
+                    value={field.value}
                     disabled={isLoading}
                   >
                     <FormControl>
@@ -264,7 +285,7 @@ export function TaskModal({
             {dueDateValue && (
               <FormField
                 control={form.control}
-                name="reminder_time"
+                name="reminder_at"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Reminder Time</FormLabel>
@@ -287,13 +308,13 @@ export function TaskModal({
             {/* Recurrence */}
             <FormField
               control={form.control}
-              name="recurrence"
+              name="recurrence_pattern"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Recurrence</FormLabel>
                   <Select
                     onValueChange={field.onChange}
-                    defaultValue={field.value}
+                    value={field.value}
                     disabled={isLoading}
                   >
                     <FormControl>

@@ -12,6 +12,7 @@ psycopg2-binary==2.9.10
 # Authentication & Security
 PyJWT==2.10.1
 pwdlib[argon2]==0.2.1
+python-jose[cryptography]==3.3.0
 
 # Middleware & Utilities
 slowapi==0.1.9

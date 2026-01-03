@@ -39,7 +39,7 @@ async def create_tag(
     repo = TagRepository(session)
 
     # Check if tag name already exists
-    if await repo.exists_by_name(user.id, tag_data.name):
+    if await repo.exists_by_name(user.uuid, tag_data.name):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={
@@ -50,7 +50,7 @@ async def create_tag(
         )
 
     try:
-        tag = await repo.create(user.id, tag_data)
+        tag = await repo.create(user.uuid, tag_data)
         await session.commit()
         return TagResponse.model_validate(tag)
     except IntegrityError:
@@ -82,7 +82,7 @@ async def list_tags(
     Soft-deleted tags are excluded.
     """
     repo = TagRepository(session)
-    tags = await repo.list_tags(user.id)
+    tags = await repo.list_tags(user.uuid)
     return [TagResponse.model_validate(tag) for tag in tags]
 
 
@@ -106,7 +106,7 @@ async def get_tag(
     - Tag is soft-deleted
     """
     repo = TagRepository(session)
-    tag = await repo.get_by_id(user.id, tag_id)
+    tag = await repo.get_by_id(user.uuid, tag_id)
 
     if not tag:
         raise HTTPException(
@@ -142,10 +142,10 @@ async def update_tag(
 
     # Check if new name conflicts with existing tag
     if tag_data.name:
-        existing = await repo.exists_by_name(user.id, tag_data.name)
+        existing = await repo.exists_by_name(user.uuid, tag_data.name)
         if existing:
             # Check if it's not the same tag
-            current_tag = await repo.get_by_id(user.id, tag_id)
+            current_tag = await repo.get_by_id(user.uuid, tag_id)
             if not current_tag or current_tag.name != tag_data.name:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
@@ -156,7 +156,7 @@ async def update_tag(
                     },
                 )
 
-    tag = await repo.update(user.id, tag_id, tag_data)
+    tag = await repo.update(user.uuid, tag_id, tag_data)
 
     if not tag:
         raise HTTPException(
@@ -188,7 +188,7 @@ async def delete_tag(
     Returns 404 if tag not found or doesn't belong to user.
     """
     repo = TagRepository(session)
-    success = await repo.soft_delete(user.id, tag_id)
+    success = await repo.soft_delete(user.uuid, tag_id)
 
     if not success:
         raise HTTPException(

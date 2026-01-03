@@ -101,12 +101,23 @@ async def check_database_health() -> bool:
             result.scalar()
 
             # Verify critical tables exist (will be populated after migrations)
+            # T020: Updated to use Better Auth user table instead of custom users table
             from sqlalchemy import inspect
             async with engine.connect() as conn:
                 def check_tables(connection):
                     inspector = inspect(connection)
                     tables = inspector.get_table_names()
-                    required_tables = {'users', 'tasks', 'tags', 'task_tags', 'notifications'}
+                    required_tables = {
+                        'user',          # Better Auth user table (singular)
+                        'session',       # Better Auth session table
+                        'account',       # Better Auth account table
+                        'verification',  # Better Auth verification table
+                        'jwks',          # Better Auth JWKS table (JWT plugin)
+                        'tasks',
+                        'tags',
+                        'task_tags',
+                        'notifications',
+                    }
                     return required_tables.issubset(set(tables))
 
                 tables_exist = await conn.run_sync(check_tables)

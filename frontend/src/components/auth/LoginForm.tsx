@@ -33,13 +33,12 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { loginSchema, LoginFormData } from "@/lib/validation-schemas";
-import { useAuth } from "@/contexts/AuthContext";
+import { authClient } from "@/lib/auth-client";
 
 export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const { login } = useAuth();
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -52,11 +51,25 @@ export function LoginForm() {
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     try {
-      await login(data.email, data.password);
+      // T017: Use Better Auth signIn.email with error handling
+      const result = await authClient.signIn.email({
+        email: data.email,
+        password: data.password,
+      });
+
+      if (result.error) {
+        // Handle Better Auth errors
+        toast.error(result.error.message || "Invalid email or password. Please try again.");
+        return;
+      }
+
+      // Success - Better Auth sets JWT cookie automatically
       toast.success("Welcome back! Redirecting to dashboard...");
       router.push("/dashboard");
+      router.refresh(); // Refresh to update session
     } catch (error) {
-      toast.error("Invalid email or password. Please try again.");
+      console.error("Login error:", error);
+      toast.error("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -151,13 +164,6 @@ export function LoginForm() {
             "Sign In"
           )}
         </Button>
-
-        {/* Demo credentials hint */}
-        <div className="mt-4 p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-200 dark:border-purple-800">
-          <p className="text-xs text-purple-700 dark:text-purple-300">
-            <strong>Demo credentials:</strong> Any email and password will work (mock authentication)
-          </p>
-        </div>
       </form>
     </Form>
   );

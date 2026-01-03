@@ -45,7 +45,7 @@ async def create_task(
     Returns the created task with ID and timestamps.
     """
     repo = TaskRepository(session)
-    task = await repo.create(user.id, task_data)
+    task = await repo.create(user.uuid, task_data)
     await session.commit()
     await session.refresh(task, ["tags"])
 
@@ -125,7 +125,7 @@ async def list_tasks(
     """
     # Build dynamic query with filters
     stmt = QueryService.build_task_query(
-        user_id=user.id,
+        user_id=user.uuid,
         status=status,
         priority=priority,
         tags=tag,
@@ -163,7 +163,7 @@ async def get_task(
     - Task is soft-deleted
     """
     repo = TaskRepository(session)
-    task = await repo.get_by_id(user.id, task_id)
+    task = await repo.get_by_id(user.uuid, task_id)
 
     if not task:
         raise HTTPException(
@@ -195,7 +195,7 @@ async def replace_task(
     Returns 404 if task not found or doesn't belong to user.
     """
     repo = TaskRepository(session)
-    task = await repo.replace(user.id, task_id, task_data)
+    task = await repo.replace(user.uuid, task_id, task_data)
 
     if not task:
         raise HTTPException(
@@ -235,7 +235,7 @@ async def update_task(
     Returns 404 if task not found or doesn't belong to user.
     """
     repo = TaskRepository(session)
-    task = await repo.update(user.id, task_id, task_data)
+    task = await repo.update(user.uuid, task_id, task_data)
 
     if not task:
         raise HTTPException(
@@ -274,7 +274,7 @@ async def toggle_task_completion(
     Returns 404 if task not found or doesn't belong to user.
     """
     repo = TaskRepository(session)
-    task = await repo.get_by_id(user.id, task_id)
+    task = await repo.get_by_id(user.uuid, task_id)
 
     if not task:
         raise HTTPException(
@@ -284,7 +284,7 @@ async def toggle_task_completion(
 
     # Toggle completion
     task_update = TaskUpdate(completed=not task.completed)
-    updated_task = await repo.update(user.id, task_id, task_update)
+    updated_task = await repo.update(user.uuid, task_id, task_update)
 
     await session.commit()
     await session.refresh(updated_task, ["tags"])
@@ -317,7 +317,7 @@ async def delete_task(
     Returns 404 if task not found or doesn't belong to user.
     """
     repo = TaskRepository(session)
-    success = await repo.soft_delete(user.id, task_id)
+    success = await repo.soft_delete(user.uuid, task_id)
 
     if not success:
         raise HTTPException(

@@ -40,7 +40,7 @@ export type TaskRecurrenceType = typeof TaskRecurrence[keyof typeof TaskRecurren
  */
 export interface Task {
   // Identity
-  id: string
+  id: number  // Backend returns integer ID
 
   // Core fields
   title: string
@@ -48,13 +48,13 @@ export interface Task {
   completed: boolean
 
   // Organization
-  priority: TaskPriorityType
-  tags: string[]  // Array of tag IDs
+  priority?: TaskPriorityType  // Optional in backend
+  tags: Array<{id: number, name: string, color?: string}>  // Backend returns full tag objects
 
   // Scheduling
   due_date?: string       // ISO 8601 date string (YYYY-MM-DD)
-  reminder_time?: string  // ISO 8601 datetime string
-  recurrence: TaskRecurrenceType
+  reminder_at?: string  // Backend field name is reminder_at, not reminder_time
+  recurrence_pattern?: TaskRecurrenceType  // Backend field name, optional
 
   // Audit
   created_at: string  // ISO 8601 datetime string
@@ -67,7 +67,7 @@ export interface Task {
  * Used for runtime validation in forms and API responses.
  */
 const taskSchemaBase = z.object({
-  id: z.string().uuid("Invalid task ID format"),
+  id: z.number(), // Backend returns integer ID
 
   title: z
     .string()
@@ -84,26 +84,30 @@ const taskSchemaBase = z.object({
 
   priority: z.enum([TaskPriority.LOW, TaskPriority.MEDIUM, TaskPriority.HIGH] as const, {
     errorMap: () => ({ message: "Priority must be low, medium, or high" }),
-  }),
+  }).optional(), // Optional in backend
 
-  tags: z.array(z.string()).default([]),
+  tags: z.array(z.object({
+    id: z.number(),
+    name: z.string(),
+    color: z.string().optional(),
+  })).default([]), // Backend returns full tag objects
 
   due_date: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Due date must be in YYYY-MM-DD format")
     .optional(),
 
-  reminder_time: z
+  reminder_at: z
     .string()
     .datetime("Reminder time must be a valid ISO 8601 datetime")
-    .optional(),
+    .optional(), // Backend field name is reminder_at
 
-  recurrence: z.enum(
+  recurrence_pattern: z.enum(
     [TaskRecurrence.NONE, TaskRecurrence.DAILY, TaskRecurrence.WEEKLY, TaskRecurrence.MONTHLY] as const,
     {
       errorMap: () => ({ message: "Recurrence must be none, daily, weekly, or monthly" }),
     }
-  ),
+  ).optional(), // Optional in backend, field name is recurrence_pattern
 
   created_at: z.string().datetime("Created at must be a valid ISO 8601 datetime"),
   updated_at: z.string().datetime("Updated at must be a valid ISO 8601 datetime"),
@@ -114,8 +118,8 @@ const taskSchemaBase = z.object({
  */
 export const taskSchema = taskSchemaBase.refine(
   (data) => {
-    // If reminder_time is set, due_date must also be set
-    if (data.reminder_time && !data.due_date) {
+    // If reminder_at is set, due_date must also be set
+    if (data.reminder_at && !data.due_date) {
       return false
     }
     return true
@@ -138,8 +142,8 @@ export const createTaskSchema = taskSchemaBase.omit({
   updated_at: true,
 }).refine(
   (data) => {
-    // If reminder_time is set, due_date must also be set
-    if (data.reminder_time && !data.due_date) {
+    // If reminder_at is set, due_date must also be set
+    if (data.reminder_at && !data.due_date) {
       return false
     }
     return true
@@ -163,8 +167,8 @@ export const updateTaskSchema = taskSchemaBase
   .partial()
   .refine(
     (data) => {
-      // If reminder_time is set, due_date must also be set
-      if (data.reminder_time && !data.due_date) {
+      // If reminder_at is set, due_date must also be set
+      if (data.reminder_at && !data.due_date) {
         return false
       }
       return true

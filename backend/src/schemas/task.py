@@ -52,8 +52,17 @@ class TaskCreate(BaseModel):
         cls, v: Optional[datetime], info: ValidationInfo
     ) -> Optional[datetime]:
         """Ensure reminder_at is before due_date if both are set."""
-        if v and info.data.get("due_date") and v >= info.data["due_date"]:
-            raise ValueError("reminder_at must be before due_date")
+        if v and info.data.get("due_date"):
+            due_date = info.data["due_date"]
+
+            # Ensure both datetimes are timezone-aware for comparison
+            from datetime import timezone
+
+            reminder = v if v.tzinfo else v.replace(tzinfo=timezone.utc)
+            due = due_date if due_date.tzinfo else due_date.replace(tzinfo=timezone.utc)
+
+            if reminder >= due:
+                raise ValueError("reminder_at must be before due_date")
         return v
 
     model_config = {
@@ -98,8 +107,17 @@ class TaskUpdate(BaseModel):
         cls, v: Optional[datetime], info: ValidationInfo
     ) -> Optional[datetime]:
         """Ensure reminder_at is before due_date if both are set."""
-        if v and info.data.get("due_date") and v >= info.data["due_date"]:
-            raise ValueError("reminder_at must be before due_date")
+        if v and info.data.get("due_date"):
+            due_date = info.data["due_date"]
+
+            # Ensure both datetimes are timezone-aware for comparison
+            from datetime import timezone
+
+            reminder = v if v.tzinfo else v.replace(tzinfo=timezone.utc)
+            due = due_date if due_date.tzinfo else due_date.replace(tzinfo=timezone.utc)
+
+            if reminder >= due:
+                raise ValueError("reminder_at must be before due_date")
         return v
 
 

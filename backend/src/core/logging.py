@@ -8,8 +8,8 @@ from contextvars import ContextVar
 
 from .config import settings
 
-# Context variable for request ID
-request_id_var: ContextVar[str] = ContextVar("request_id", default="")
+# Context variable for correlation ID (replaces request_id for Better Auth integration)
+correlation_id_var: ContextVar[str] = ContextVar("correlation_id", default="")
 
 
 class JSONFormatter(logging.Formatter):
@@ -20,30 +20,38 @@ class JSONFormatter(logging.Formatter):
     """
 
     def format(self, record: logging.LogRecord) -> str:
-        """Format log record as JSON."""
+        """
+        Format log record as JSON with all required fields per FR-029.
+
+        Required fields: timestamp, level, correlation_id, user_id, endpoint, http_method,
+                        status_code, duration_ms, error_message, metadata
+        """
         log_data: Dict[str, Any] = {
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "level": record.levelname,
-            "logger": record.name,
+            "correlation_id": correlation_id_var.get(""),
             "message": record.getMessage(),
-            "request_id": request_id_var.get(""),
         }
 
-        # Add exception info if present
-        if record.exc_info:
-            log_data["exception"] = self.formatException(record.exc_info)
-
-        # Add extra fields from record
+        # Add optional fields from record (FR-029 required fields)
         if hasattr(record, "user_id"):
             log_data["user_id"] = record.user_id
-        if hasattr(record, "email"):
-            log_data["email"] = record.email
         if hasattr(record, "endpoint"):
             log_data["endpoint"] = record.endpoint
+        if hasattr(record, "http_method"):
+            log_data["http_method"] = record.http_method
         if hasattr(record, "status_code"):
             log_data["status_code"] = record.status_code
         if hasattr(record, "duration_ms"):
             log_data["duration_ms"] = record.duration_ms
+        if hasattr(record, "error_message"):
+            log_data["error_message"] = record.error_message
+        if hasattr(record, "metadata"):
+            log_data["metadata"] = record.metadata
+
+        # Add exception info if present
+        if record.exc_info:
+            log_data["exception"] = self.formatException(record.exc_info)
 
         return json.dumps(log_data)
 
@@ -75,8 +83,8 @@ def setup_logging() -> None:
     else:
         console_handler.setFormatter(
             logging.Formatter(
-                "%(asctime)s - %(name)s - %(levelname)s - [%(request_id)s] - %(message)s",
-                defaults={"request_id": ""},
+                "%(asctime)s - %(name)s - %(levelname)s - [%(correlation_id)s] - %(message)s",
+                defaults={"correlation_id": ""},
             )
         )
 
@@ -87,11 +95,16 @@ def setup_logging() -> None:
     logging.getLogger("uvicorn.error").setLevel(logging.INFO)
 
 
-def set_request_id(request_id: str) -> None:
-    """Set request ID in context for current request."""
-    request_id_var.set(request_id)
+def set_correlation_id(correlation_id: str) -> None:
+    """
+    Set correlation ID in context for current request.
+
+    This enables tracing requests across frontend -> backend -> external services.
+    Correlation ID is propagated via X-Correlation-ID header.
+    """
+    correlation_id_var.set(correlation_id)
 
 
-def get_request_id() -> str:
-    """Get request ID from context."""
-    return request_id_var.get("")
+def get_correlation_id() -> str:
+    """Get correlation ID from context."""
+    return correlation_id_var.get("")

@@ -35,14 +35,13 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { registerSchema, RegisterFormData } from "@/lib/validation-schemas";
-import { useAuth } from "@/contexts/AuthContext";
+import { authClient } from "@/lib/auth-client";
 
 export function RegisterForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const { register } = useAuth();
 
   const form = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
@@ -76,11 +75,27 @@ export function RegisterForm() {
   const onSubmit = async (data: RegisterFormData) => {
     setIsLoading(true);
     try {
-      await register(data.name, data.email, data.password);
+      // T018: Use Better Auth signUp.email with validation
+      const result = await authClient.signUp.email({
+        email: data.email,
+        password: data.password,
+        name: data.name,
+      });
+
+      if (result.error) {
+        // Handle Better Auth errors
+        const errorMessage = result.error.message || "Registration failed. Please try again.";
+        toast.error(errorMessage);
+        return;
+      }
+
+      // Success - Better Auth sets JWT cookie automatically
       toast.success("Account created successfully! Redirecting to dashboard...");
       router.push("/dashboard");
+      router.refresh(); // Refresh to update session
     } catch (error) {
-      toast.error("Registration failed. Please try again.");
+      console.error("Registration error:", error);
+      toast.error("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }

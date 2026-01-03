@@ -193,7 +193,7 @@ export function TagManager() {
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <Badge
                   className="text-white shrink-0"
-                  style={{ backgroundColor: tag.color }}
+                  style={{ backgroundColor: tag.color || "#3B82F6" }}
                 >
                   {tag.name}
                 </Badge>

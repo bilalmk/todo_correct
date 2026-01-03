@@ -41,7 +41,7 @@ async def assign_tag_to_task(
     repo = TaskTagRepository(session)
 
     try:
-        success = await repo.assign_tag(user.id, task_id, task_tag_data.tag_id)
+        success = await repo.assign_tag(user.uuid, task_id, task_tag_data.tag_id)
         await session.commit()
 
         return TaskTagResponse(
@@ -85,7 +85,7 @@ async def list_task_tags(
     Returns empty list if task not found (for security - no user enumeration).
     """
     repo = TaskTagRepository(session)
-    tags = await repo.get_task_tags(user.id, task_id)
+    tags = await repo.get_task_tags(user.uuid, task_id)
     return [TagResponse.model_validate(tag) for tag in tags]
 
 
@@ -109,7 +109,7 @@ async def remove_tag_from_task(
     Returns 404 if task not found or tag was not assigned to the task.
     """
     repo = TaskTagRepository(session)
-    success = await repo.unassign_tag(user.id, task_id, tag_id)
+    success = await repo.unassign_tag(user.uuid, task_id, tag_id)
 
     if not success:
         raise HTTPException(

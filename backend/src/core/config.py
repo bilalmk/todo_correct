@@ -14,8 +14,13 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_DAYS: int = 7
 
+    # Better Auth JWT Configuration (T007)
+    BETTER_AUTH_JWKS_URL: str = ""
+    BETTER_AUTH_ISSUER: str = ""
+
     # CORS
     CORS_ORIGINS: str = "http://localhost:3000"
+    FRONTEND_URL: str = "http://localhost:3000"
 
     # Server
     HOST: str = "0.0.0.0"

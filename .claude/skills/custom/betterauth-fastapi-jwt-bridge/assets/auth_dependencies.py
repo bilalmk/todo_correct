@@ -1,30 +1,33 @@
 """
-FastAPI dependencies for authentication.
+FastAPI dependencies for authentication with Better Auth UUID integration.
 
 This module provides FastAPI dependencies for JWT authentication and user authorization.
+Updated to support Better Auth hybrid ID approach (String ID + UUID).
 
 Usage:
     Copy this file to: backend/app/auth/dependencies.py
 
 Example:
     from app.auth.dependencies import get_current_user, verify_user_access
+    from uuid import UUID
 
     @router.get("/protected")
     async def protected_route(user: dict = Depends(get_current_user)):
-        return {"user_id": user["user_id"]}
+        return {"user_uuid": user["uuid"]}  # Use UUID
 
     @router.get("/{user_id}/tasks")
     async def get_tasks(
-        user_id: str,
+        user_id: UUID,  # UUID in path
         user: dict = Depends(verify_user_access)
     ):
-        # user_id is guaranteed to match authenticated user
+        # user_id is guaranteed to match authenticated user's UUID
         return get_user_tasks(user_id)
 """
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from typing import Dict, Any
+from uuid import UUID
 from .jwt_verification import verify_jwt_token, extract_user_from_payload
 
 # OAuth2 scheme for Swagger UI
@@ -56,7 +59,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> Dict[str, Any
     Returns:
         User information dictionary:
         {
-            "user_id": "user_abc123",
+            "user_id": "user_abc123",          # Better Auth String ID (from 'sub')
+            "uuid": "a1b2c3d4-e5f6-...",      # Application UUID (from 'uuid' claim) ⭐
             "email": "user@example.com",
             "name": "User Name",
             "payload": {...}  # Full JWT payload
@@ -75,26 +79,28 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> Dict[str, Any
 
 
 async def verify_user_access(
-    user_id: str,
+    user_id: UUID,
     current_user: Dict[str, Any] = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """
-    Verify that the authenticated user matches the requested user_id.
+    Verify that the authenticated user's UUID matches the requested user_id.
 
     This prevents users from accessing other users' data by checking that
-    the user_id in the URL path matches the user_id from the JWT token.
+    the UUID in the URL path matches the UUID from the JWT token.
+
+    Updated for Better Auth UUID integration: Compares UUID (not String ID).
 
     Usage:
         @app.get("/api/v1/{user_id}/tasks")
         async def get_tasks(
-            user_id: str,
+            user_id: UUID,  # UUID from URL path
             user: dict = Depends(verify_user_access)
         ):
-            # If we reach here, user_id is guaranteed to match authenticated user
+            # If we reach here, user_id is guaranteed to match authenticated user's UUID
             return db.query(Task).filter(Task.user_id == user_id).all()
 
     Args:
-        user_id: User ID from URL path parameter
+        user_id: User UUID from URL path parameter
         current_user: Current authenticated user from JWT (injected by get_current_user)
 
     Returns:
@@ -103,7 +109,9 @@ async def verify_user_access(
     Raises:
         HTTPException 403: If user tries to access another user's resources
     """
-    if current_user["user_id"] != user_id:
+    # Compare UUIDs (not String IDs)
+    current_user_uuid = UUID(current_user["uuid"])
+    if current_user_uuid != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to access this user's resources",

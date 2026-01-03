@@ -10,23 +10,51 @@
  * - Responsive: Hidden on mobile (hamburger), visible on desktop (lg:)
  * - Navigation links with active states
  * - User profile section
- * - Logout button
+ * - Logout button (Better Auth integration)
  * - WCAG 2.1 AA accessible
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { CheckSquare, Tag, LogOut, Menu, X, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/contexts/AuthContext";
+import { authClient } from "@/lib/auth-client";
 import { toast } from "sonner";
+
+interface SessionUser {
+  id: string;
+  name?: string;
+  email: string;
+}
 
 export function DashboardSidebar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [user, setUser] = useState<SessionUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout } = useAuth();
+
+  // Load session on mount
+  useEffect(() => {
+    async function loadSession() {
+      try {
+        const session = await authClient.getSession();
+        if (session?.data?.user) {
+          setUser(session.data.user);
+        } else {
+          // No session, redirect to login
+          router.push("/auth/login");
+        }
+      } catch (error) {
+        console.error("Failed to load session:", error);
+        router.push("/auth/login");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadSession();
+  }, [router]);
 
   const navItems = [
     { href: "/dashboard" as const, label: "Tasks", icon: CheckSquare },
@@ -34,10 +62,29 @@ export function DashboardSidebar() {
   ];
 
   const handleLogout = async () => {
-    await logout();
-    toast.success("Logged out successfully");
-    router.push("/");
+    await authClient.signOut({
+      fetchOptions: {
+        onSuccess: () => {
+          toast.success("Logged out successfully");
+          router.push("/auth/login");
+        },
+        onError: (ctx) => {
+          toast.error(ctx.error.message || "Failed to logout");
+        },
+      },
+    });
   };
+
+  // Show loading state while session is being fetched
+  if (isLoading) {
+    return (
+      <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 hidden lg:block">
+        <div className="flex items-center justify-center h-full">
+          <div className="text-gray-500">Loading...</div>
+        </div>
+      </aside>
+    );
+  }
 
   return (
     <>

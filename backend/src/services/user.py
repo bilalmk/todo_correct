@@ -1,88 +1,62 @@
-"""User service layer for business logic."""
-from typing import Optional
-from uuid import UUID
+"""User service for Better Auth integration.
 
-from sqlalchemy.exc import IntegrityError
+T020: Updated to work with Better Auth user table instead of custom users table.
+"""
+from uuid import UUID
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
-
-from ..core.security import hash_password
-from ..models.user import User, UserCreate
+from ..models.user import User
 
 
-async def create_user(session: AsyncSession, user_data: UserCreate) -> User:
+async def get_user_by_uuid(session: AsyncSession, user_uuid: UUID) -> User | None:
     """
-    Create a new user account.
+    Get user by UUID from Better Auth user table.
 
     Args:
         session: Database session
-        user_data: User registration data
+        user_uuid: User UUID
 
     Returns:
-        Created user
-
-    Raises:
-        IntegrityError: If email already exists
-
-    Example:
-        try:
-            user = await create_user(session, user_data)
-        except IntegrityError:
-            raise HTTPException(400, "Email already registered")
+        User if found, None otherwise
     """
-    # Hash password
-    password_hash = hash_password(user_data.password)
-
-    # Create user instance
-    db_user = User(
-        email=user_data.email,
-        name=user_data.name,
-        password_hash=password_hash,
+    result = await session.execute(
+        select(User).where(User.uuid == user_uuid)
     )
-
-    # Save to database
-    session.add(db_user)
-    await session.commit()
-    await session.refresh(db_user)
-
-    return db_user
-
-
-async def get_user_by_email(session: AsyncSession, email: str) -> Optional[User]:
-    """
-    Get user by email address.
-
-    Args:
-        session: Database session
-        email: User's email (case-insensitive)
-
-    Returns:
-        User if found, None otherwise
-
-    Example:
-        user = await get_user_by_email(session, "user@example.com")
-        if user:
-            # User exists
-    """
-    statement = select(User).where(User.email == email.lower())
-    result = await session.execute(statement)
     return result.scalar_one_or_none()
 
 
-async def get_user_by_id(session: AsyncSession, user_id: UUID) -> Optional[User]:
+async def get_user_by_email(session: AsyncSession, email: str) -> User | None:
     """
-    Get user by ID.
+    Get user by email from Better Auth user table.
 
     Args:
         session: Database session
-        user_id: User's UUID
+        email: User email address
 
     Returns:
         User if found, None otherwise
-
-    Example:
-        user = await get_user_by_id(session, user_id)
     """
-    statement = select(User).where(User.id == user_id)
-    result = await session.execute(statement)
+    result = await session.execute(
+        select(User).where(User.email == email.lower())
+    )
     return result.scalar_one_or_none()
+
+
+async def get_user_by_id(session: AsyncSession, user_id: UUID) -> User | None:
+    """
+    Get user by UUID (alias for get_user_by_uuid for backward compatibility).
+
+    Args:
+        session: Database session
+        user_id: User UUID
+
+    Returns:
+        User if found, None otherwise
+    """
+    return await get_user_by_uuid(session, user_id)
+
+
+# Removed functions (Better Auth handles these on frontend):
+# - create_user() - Registration is handled by Better Auth
+# - authenticate_user() - Authentication handled by Better Auth
+# - update_user() - User updates handled by Better Auth

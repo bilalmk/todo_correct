@@ -19,15 +19,15 @@ import { z } from "zod"
  */
 export interface Tag {
   // Identity
-  id: string  // Lowercase slug (e.g., "work", "personal-finance")
+  id: number  // Backend returns integer ID
 
   // Core fields
   name: string      // Display name (unique)
-  color: string     // Hex color code (e.g., "#3B82F6")
+  color?: string     // Hex color code (e.g., "#3B82F6") - optional in backend
 
   // Metadata
-  usage_count: number  // Number of tasks using this tag
-  archived: boolean    // Soft delete flag (default false)
+  usage_count: number  // Number of tasks using this tag (client-side calculated)
+  archived: boolean    // Soft delete flag (default false) - not in backend schema
 }
 
 /**
@@ -36,11 +36,7 @@ export interface Tag {
  * Used for runtime validation in forms and data management.
  */
 export const tagSchema = z.object({
-  id: z
-    .string()
-    .min(1, "Tag ID is required")
-    .regex(/^[a-z0-9-]+$/, "Tag ID must be lowercase alphanumeric with hyphens only")
-    .max(50, "Tag ID must be 50 characters or less"),
+  id: z.number().int().positive(), // Backend returns integer ID
 
   name: z
     .string()
@@ -51,7 +47,8 @@ export const tagSchema = z.object({
   color: z
     .string()
     .regex(/^#[0-9A-Fa-f]{6}$/, "Color must be a valid hex color code (e.g., #3B82F6)")
-    .transform((val) => val.toUpperCase()), // Normalize to uppercase
+    .transform((val) => val.toUpperCase())
+    .optional(), // Optional in backend
 
   usage_count: z
     .number()
@@ -78,7 +75,8 @@ export const createTagSchema = z.object({
   color: z
     .string()
     .regex(/^#[0-9A-Fa-f]{6}$/, "Color must be a valid hex color code (e.g., #3B82F6)")
-    .transform((val) => val.toUpperCase()),
+    .transform((val) => val.toUpperCase())
+    .optional(), // Match backend - color is optional
 })
 
 export type CreateTagInput = z.infer<typeof createTagSchema>

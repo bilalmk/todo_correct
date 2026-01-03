@@ -73,7 +73,7 @@ export function TagModal({
     if (initialData) {
       form.reset({
         name: initialData.name,
-        color: initialData.color,
+        color: initialData.color || "#3B82F6", // Default to blue if no color
       });
     } else {
       form.reset({

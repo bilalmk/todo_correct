@@ -1,97 +1,71 @@
-"""User database models and schemas."""
-from datetime import datetime, timezone
+"""User model mapped to Better Auth user table."""
+from datetime import datetime
 from typing import Optional
-from uuid import UUID, uuid4
+from uuid import UUID
 
-from pydantic import EmailStr, field_validator
+from pydantic import field_validator, EmailStr
 from sqlmodel import Field, SQLModel, Column
 from sqlalchemy import DateTime
 
 
-class UserBase(SQLModel):
-    """Base user model with shared fields."""
+class User(SQLModel, table=True):
+    """
+    User model mapped to Better Auth user table.
 
-    email: EmailStr = Field(unique=True, index=True, max_length=255, sa_column_kwargs={"unique": True})
-    name: str = Field(min_length=1, max_length=255)
+    Better Auth manages authentication and uses String IDs internally.
+    We've extended the schema with a UUID column for type consistency
+    across our application's API routes and foreign key relationships.
+    """
 
-    @field_validator("email", mode="before")
-    @classmethod
-    def normalize_email(cls, v: str) -> str:
-        """Normalize email to lowercase."""
-        if isinstance(v, str):
-            return v.lower().strip()
-        return v
+    __tablename__ = "user"  # Better Auth table name (singular, no 's')
 
-    @field_validator("name", mode="before")
-    @classmethod
-    def validate_name(cls, v: str) -> str:
-        """Validate and trim name."""
-        if isinstance(v, str):
-            v = v.strip()
-            if not v:
-                raise ValueError("Name cannot be empty")
-        return v
-
-
-class User(UserBase, table=True):
-    """User database model."""
-
-    __tablename__ = "users"
-
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
-    password_hash: str = Field(max_length=255)
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        sa_column=Column(DateTime(timezone=True), nullable=False),
+    # Better Auth fields (required for Better Auth compatibility)
+    id: str = Field(primary_key=True)  # Better Auth String ID
+    email: str = Field(unique=True, index=True, max_length=255)
+    emailVerified: bool = Field(default=False)
+    name: Optional[str] = Field(default=None, max_length=255)
+    image: Optional[str] = Field(default=None)
+    createdAt: datetime = Field(
+        default_factory=lambda: datetime.utcnow(),
+        sa_column=Column(DateTime(timezone=False), nullable=False)
     )
-    updated_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        sa_column=Column(DateTime(timezone=True), nullable=False),
+    updatedAt: datetime = Field(
+        default_factory=lambda: datetime.utcnow(),
+        sa_column=Column(DateTime(timezone=False), nullable=False)
     )
 
+    # Our application field (for type consistency across API routes)
+    uuid: UUID = Field(unique=True, index=True, nullable=False)
 
-class UserCreate(UserBase):
-    """Schema for user registration."""
-
-    password: str = Field(min_length=8, max_length=100)
-
-    @field_validator("password")
-    @classmethod
-    def validate_password(cls, v: str) -> str:
-        """Validate password strength."""
-        if len(v) < 8:
-            raise ValueError("Password must be at least 8 characters")
-        return v
+    # Note: Password is stored in Better Auth's 'account' table, not here
 
 
-class UserLogin(SQLModel):
-    """Schema for user login."""
+class UserResponse(SQLModel):
+    """
+    Schema for user data in API responses.
 
-    email: EmailStr = Field(max_length=255)
-    password: str = Field(min_length=8, max_length=100)
-
-    @field_validator("email", mode="before")
-    @classmethod
-    def normalize_email(cls, v: str) -> str:
-        """Normalize email to lowercase."""
-        if isinstance(v, str):
-            return v.lower().strip()
-        return v
-
-
-class UserResponse(UserBase):
-    """Schema for user data in responses (no password)."""
-
-    id: UUID
-    created_at: datetime
-    updated_at: datetime
+    Uses UUID instead of Better Auth's String ID for consistency
+    with our application's API routes.
+    """
+    uuid: UUID  # Use UUID in API responses
+    email: str
+    name: Optional[str]
+    createdAt: datetime
+    updatedAt: datetime
 
     model_config = {"from_attributes": True}
 
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, v: str) -> str:
+        """Normalize email to lowercase."""
+        if isinstance(v, str):
+            return v.lower().strip()
+        return v
 
-class UserWithToken(SQLModel):
-    """Schema for authentication responses."""
 
-    access_token: str
-    token_type: str = "bearer"
-    user: UserResponse
+# Removed schemas (Better Auth handles these on frontend):
+# - UserCreate (registration handled by Better Auth)
+# - UserLogin (login handled by Better Auth)
+# - UserWithToken (JWT tokens generated by Better Auth)
+# - UserBase (not needed with Better Auth schema)

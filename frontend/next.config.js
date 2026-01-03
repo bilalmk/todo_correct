@@ -2,8 +2,11 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  typedRoutes: true,
   experimental: {
-    typedRoutes: true,
+    turbopack: {
+      root: '/mnt/e/giaic/learning/spec_kit_plus/todo_correct/frontend',
+    },
   },
 }
 
