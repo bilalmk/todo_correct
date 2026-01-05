@@ -3,10 +3,21 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   typedRoutes: true,
-  experimental: {
-    turbopack: {
-      root: '/mnt/e/giaic/learning/spec_kit_plus/todo_correct/frontend',
-    },
+  // Image optimization configuration (building-nextjs-apps skill pattern from T003)
+  images: {
+    // Remote patterns for external image sources (Unsplash)
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'unsplash.com',
+        pathname: '/**',
+      },
+    ],
   },
 }
 

@@ -22,13 +22,13 @@ export const TaskPriority = {
 export type TaskPriorityType = typeof TaskPriority[keyof typeof TaskPriority]
 
 /**
- * Task Recurrence Patterns
+ * Task Recurrence Patterns (matches backend RecurrencePatternEnum)
  */
 export const TaskRecurrence = {
-  NONE: "none",
   DAILY: "daily",
   WEEKLY: "weekly",
   MONTHLY: "monthly",
+  CUSTOM: "custom",
 } as const
 
 export type TaskRecurrenceType = typeof TaskRecurrence[keyof typeof TaskRecurrence]
@@ -103,9 +103,9 @@ const taskSchemaBase = z.object({
     .optional(), // Backend field name is reminder_at
 
   recurrence_pattern: z.enum(
-    [TaskRecurrence.NONE, TaskRecurrence.DAILY, TaskRecurrence.WEEKLY, TaskRecurrence.MONTHLY] as const,
+    [TaskRecurrence.DAILY, TaskRecurrence.WEEKLY, TaskRecurrence.MONTHLY, TaskRecurrence.CUSTOM] as const,
     {
-      errorMap: () => ({ message: "Recurrence must be none, daily, weekly, or monthly" }),
+      errorMap: () => ({ message: "Recurrence must be daily, weekly, monthly, or custom" }),
     }
   ).optional(), // Optional in backend, field name is recurrence_pattern
 

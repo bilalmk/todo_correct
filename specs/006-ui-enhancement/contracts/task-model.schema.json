@@ -1,0 +1,145 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://todoevolution.dev/schemas/task-model.json",
+  "title": "Task",
+  "description": "Represents a user's todo task with manual ordering capability (Enhanced UI feature 006-ui-enhancement)",
+  "type": "object",
+  "required": [
+    "id",
+    "user_id",
+    "title",
+    "completed",
+    "created_at",
+    "updated_at",
+    "sort_order"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer",
+      "description": "Unique task identifier (auto-incremented primary key)",
+      "minimum": 1,
+      "examples": [42, 123, 999]
+    },
+    "user_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Owner user UUID (foreign key to user.uuid)",
+      "examples": ["550e8400-e29b-41d4-a716-446655440000"]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "description": "Task title (required, non-empty)",
+      "examples": [
+        "Buy groceries",
+        "Complete project proposal",
+        "Call dentist for appointment"
+      ]
+    },
+    "description": {
+      "type": ["string", "null"],
+      "description": "Optional task description (can be null or empty string)",
+      "examples": [
+        "Milk, eggs, bread, vegetables",
+        null,
+        ""
+      ]
+    },
+    "completed": {
+      "type": "boolean",
+      "description": "Task completion status",
+      "default": false,
+      "examples": [false, true]
+    },
+    "priority": {
+      "type": ["string", "null"],
+      "enum": ["low", "medium", "high", null],
+      "description": "Task priority level (low, medium, high, or null)",
+      "default": "medium",
+      "examples": ["high", "medium", "low", null]
+    },
+    "due_date": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Optional due date in ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ)",
+      "examples": [
+        "2026-01-15T10:00:00Z",
+        "2026-02-01T23:59:59Z",
+        null
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Task creation timestamp in ISO 8601 format (automatically set)",
+      "examples": ["2026-01-03T14:30:00Z"]
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last update timestamp in ISO 8601 format (automatically updated)",
+      "examples": ["2026-01-03T15:45:00Z"]
+    },
+    "sort_order": {
+      "type": "integer",
+      "format": "int64",
+      "description": "User-defined position for manual task ordering (lower value = higher in list). Sequential increments (1000, 2000, 3000) on reorder. NEW FIELD in 006-ui-enhancement feature.",
+      "minimum": 0,
+      "default": 0,
+      "examples": [1000, 2000, 3000, 1672531200000]
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "id": 42,
+      "user_id": "550e8400-e29b-41d4-a716-446655440000",
+      "title": "Buy groceries",
+      "description": "Milk, eggs, bread, vegetables",
+      "completed": false,
+      "priority": "high",
+      "due_date": "2026-01-05T18:00:00Z",
+      "created_at": "2026-01-03T14:30:00Z",
+      "updated_at": "2026-01-03T14:30:00Z",
+      "sort_order": 1000
+    },
+    {
+      "id": 15,
+      "user_id": "550e8400-e29b-41d4-a716-446655440000",
+      "title": "Complete project proposal",
+      "description": null,
+      "completed": true,
+      "priority": "medium",
+      "due_date": null,
+      "created_at": "2026-01-02T09:15:00Z",
+      "updated_at": "2026-01-03T11:20:00Z",
+      "sort_order": 2000
+    },
+    {
+      "id": 89,
+      "user_id": "550e8400-e29b-41d4-a716-446655440000",
+      "title": "Call dentist for appointment",
+      "description": "Request Tuesday afternoon slot",
+      "completed": false,
+      "priority": "low",
+      "due_date": "2026-01-10T12:00:00Z",
+      "created_at": "2026-01-01T16:00:00Z",
+      "updated_at": "2026-01-01T16:00:00Z",
+      "sort_order": 3000
+    }
+  ],
+  "definitions": {
+    "PriorityLevel": {
+      "type": "string",
+      "enum": ["low", "medium", "high"],
+      "description": "Task priority levels"
+    },
+    "SortOrderStrategy": {
+      "type": "string",
+      "const": "sequential_increments",
+      "description": "Sort order implementation strategy: sequential increments of 1000 (1000, 2000, 3000, ...)"
+    }
+  },
+  "$comment": "This schema reflects the Task model after the 006-ui-enhancement feature. The sort_order field enables drag-and-drop task reordering with persistent backend storage. Existing tasks are backfilled with created_at timestamp values during migration."
+}

@@ -150,6 +150,41 @@ class TaskReplace(BaseModel):
         return v
 
 
+class ReorderRequest(BaseModel):
+    """Request DTO for reordering tasks via drag-and-drop (T040 - fastapi-expert pattern)."""
+
+    task_ids: List[int] = Field(
+        ...,
+        min_length=1,
+        description="Ordered array of task IDs (1-indexed positions)",
+    )
+
+    @field_validator("task_ids")
+    @classmethod
+    def validate_task_ids(cls, v: List[int]) -> List[int]:
+        """Ensure all task IDs are positive integers and array is non-empty."""
+        if not v:
+            raise ValueError("task_ids array cannot be empty")
+
+        for task_id in v:
+            if task_id <= 0:
+                raise ValueError(f"Invalid task_id {task_id}: must be positive integer")
+
+        # Check for duplicates
+        if len(v) != len(set(v)):
+            raise ValueError("task_ids array contains duplicate IDs")
+
+        return v
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "task_ids": [5, 2, 8, 1, 3]  # New order after drag-and-drop
+            }
+        }
+    }
+
+
 class TaskResponse(BaseModel):
     """Response DTO for task objects with nested tags."""
 

@@ -109,6 +109,13 @@ class Task(SQLModel, table=True):
         description="JSONB field storing iCalendar RRULE format",
     )
 
+    # Drag-and-drop ordering (Phase III - UI Enhancement)
+    sort_order: int = Field(
+        default=0,
+        sa_column=Column(BigInteger, nullable=False, index=True),
+        description="User-defined position for manual task ordering (lower = higher in list)",
+    )
+
     # Relationships
     tags: List["Tag"] = Relationship(
         back_populates="tasks",
@@ -120,6 +127,8 @@ class Task(SQLModel, table=True):
     __table_args__ = (
         # Composite index: user_id + completed (for filtering by completion status)
         Index("idx_tasks_user_completed", "user_id", "completed"),
+        # Composite index: user_id + sort_order (for efficient sorted task queries)
+        Index("idx_tasks_user_sort_order", "user_id", "sort_order"),
         # Partial index: user_id + priority (only for tasks with priority set)
         Index(
             "idx_tasks_user_priority",

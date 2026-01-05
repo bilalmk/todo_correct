@@ -138,22 +138,22 @@ export function LoginForm() {
           )}
         />
 
-        {/* Forgot password link */}
+        {/* Forgot password link (frontend-design-system: 44px touch target) */}
         <div className="flex items-center justify-end">
           <button
             type="button"
-            className="text-sm text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
+            className="text-sm text-primary hover:text-secondary dark:text-primary dark:hover:text-secondary transition-colors duration-300 min-h-[44px] flex items-center"
             onClick={() => toast.info("Password reset feature coming soon!")}
           >
             Forgot password?
           </button>
         </div>
 
-        {/* Submit button */}
+        {/* Submit button (frontend-design-system: 44px height, gradient from primary to secondary) */}
         <Button
           type="submit"
           disabled={isLoading}
-          className="w-full h-11 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white"
+          className="w-full h-11 bg-gradient-to-r from-primary to-secondary hover:opacity-90 text-white transition-opacity duration-300"
         >
           {isLoading ? (
             <>

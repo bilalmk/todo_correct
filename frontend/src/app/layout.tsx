@@ -1,6 +1,7 @@
 /**
  * Root layout for Next.js App Router with context providers
  * T019: Updated to use Better Auth (managed via authClient, no provider needed)
+ * T021a: Page transitions moved to template.tsx (Next.js recommended pattern)
  */
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
@@ -30,6 +31,10 @@ export default function RootLayout({
           - Authentication managed via authClient (no provider wrapper needed)
           - Session available via authClient.getSession()
           - JWT tokens handled automatically via httpOnly cookies
+
+          T021a: Page transitions implemented in template.tsx
+          - Fade-in/slide-up animations (200ms-400ms duration)
+          - Applied to all route changes per FR-037
         */}
         <TaskProvider>
           <TagProvider>

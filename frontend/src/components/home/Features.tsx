@@ -84,7 +84,7 @@ export function Features() {
           variants={fadeIn}
           className="text-center mb-12 md:mb-16"
         >
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight mb-4 bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600 dark:from-purple-400 dark:to-indigo-400">
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight mb-4 bg-clip-text text-transparent bg-gradient-to-r from-primary via-secondary to-accent dark:from-primary dark:to-secondary">
             Everything You Need
           </h2>
           <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
@@ -106,9 +106,9 @@ export function Features() {
                 viewport={{ once: true, amount: 0.3 }}
                 transition={{ delay: index * 0.1 }}
               >
-                <Card className="h-full hover:shadow-lg transition-shadow duration-300 border-2 hover:border-purple-200 dark:hover:border-purple-800">
+                <Card className="h-full hover:shadow-lg transition-shadow duration-300 border-2 hover:border-primary/30 dark:hover:border-primary/60">
                   <CardHeader>
-                    <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center mb-4">
+                    <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center mb-4">
                       <Icon className="h-6 w-6 text-white" />
                     </div>
                     <CardTitle className="text-xl">{feature.title}</CardTitle>
@@ -137,7 +137,7 @@ export function Features() {
           </p>
           <a
             href="/auth/register"
-            className="inline-flex items-center justify-center px-6 py-3 text-base font-medium text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 min-h-[44px]"
+            className="inline-flex items-center justify-center px-6 py-3 text-base font-medium text-white bg-gradient-to-r from-primary to-secondary hover:opacity-90 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 min-h-[44px]"
           >
             Start Your Free Trial
           </a>

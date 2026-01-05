@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import { FilterBar } from "@/components/dashboard/FilterBar";
 import { TaskList } from "@/components/dashboard/TaskList";
 import { TaskModal } from "@/components/dashboard/TaskModal";
+import { TaskStats } from "@/components/dashboard/TaskStats"; // T056
 import { Pagination } from "@/components/Pagination"; // T030
 import { useTasks } from "@/contexts/TaskContext";
 import { useFilter } from "@/contexts/FilterContext"; // T032
@@ -37,7 +38,7 @@ import { authClient } from "@/lib/auth-client";
 import { getUserUuidFromSession } from "@/lib/get-user-uuid";
 
 export default function DashboardPage() {
-  const { addTask, refreshTasks, totalTasks, totalPages: taskTotalPages, currentPage: taskCurrentPage, pageLimit: taskPageLimit } = useTasks();
+  const { tasks, addTask, refreshTasks, totalTasks, totalPages: taskTotalPages, currentPage: taskCurrentPage, pageLimit: taskPageLimit } = useTasks(); // T056: Added tasks for TaskStats
   const {
     status,
     setStatus,
@@ -168,16 +169,32 @@ export default function DashboardPage() {
     try {
       // T021: user_id is now available for API calls
       // Create task first (backend doesn't accept tags in TaskCreate)
-      const createdTask = await addTask({
-        title: data.title,
-        description: data.description || undefined,
+      // Sanitize data: remove empty strings and convert to undefined
+      const taskData: any = {
+        title: data.title.trim(),
         completed: false,
-        priority: data.priority,
-        due_date: data.due_date || undefined,
-        reminder_at: data.reminder_at || undefined,
-        recurrence_pattern: data.recurrence_pattern || undefined,
-        tags: [], // Backend returns empty array, tags must be assigned separately
-      });
+      };
+
+      // Only include optional fields if they have values
+      if (data.description && data.description.trim()) {
+        taskData.description = data.description.trim();
+      }
+      if (data.priority) {
+        taskData.priority = data.priority;
+      }
+      if (data.due_date && data.due_date.trim()) {
+        // Convert datetime-local (YYYY-MM-DDTHH:mm) to ISO 8601 (YYYY-MM-DDTHH:mm:ss.sssZ)
+        taskData.due_date = new Date(data.due_date).toISOString();
+      }
+      if (data.reminder_at && data.reminder_at.trim()) {
+        // Convert datetime-local (YYYY-MM-DDTHH:mm) to ISO 8601 (YYYY-MM-DDTHH:mm:ss.sssZ)
+        taskData.reminder_at = new Date(data.reminder_at).toISOString();
+      }
+      if (data.recurrence_pattern) {
+        taskData.recurrence_pattern = data.recurrence_pattern;
+      }
+
+      const createdTask = await addTask(taskData);
 
       // Assign tags if any were selected
       if (data.tags && data.tags.length > 0) {
@@ -211,12 +228,12 @@ export default function DashboardPage() {
     }
   };
 
-  // Show loading state while session is being loaded
+  // Show loading state while session is being loaded (T030 - frontend-design-system)
   if (isLoadingSession) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-400">Loading your tasks...</p>
         </div>
       </div>
@@ -224,10 +241,10 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Page header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
           My Tasks
         </h1>
         <p className="text-gray-600 dark:text-gray-400">
@@ -235,11 +252,20 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Filter bar */}
-      <FilterBar onCreateTask={() => setIsCreateModalOpen(true)} />
+      {/* T056: Task statistics section with clear spacing */}
+      <section className="pb-6 border-b border-gray-200 dark:border-gray-800">
+        <TaskStats tasks={Array.isArray(tasks) ? tasks : []} />
+      </section>
 
-      {/* Task list */}
-      <TaskList />
+      {/* T056: Filter section with clear spacing */}
+      <section className="pb-6 border-b border-gray-200 dark:border-gray-800">
+        <FilterBar onCreateTask={() => setIsCreateModalOpen(true)} />
+      </section>
+
+      {/* T056: Task list section with clear spacing */}
+      <section className="min-h-[400px]">
+        <TaskList />
+      </section>
 
       {/* T030: Pagination */}
       <Pagination

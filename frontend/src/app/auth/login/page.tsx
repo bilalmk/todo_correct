@@ -1,15 +1,19 @@
 /**
- * Login Page
+ * Login Page - Updated with Orange/Coral Theme
  *
- * Built following skills:
- * - @.claude/skills/mjs/building-nextjs-apps (Next.js 16 App Router patterns)
- * - @.claude/skills/custom/frontend-design-system (Responsive layout patterns)
- *
- * Features:
- * - Server Component with proper metadata
+ * Features (per tasks.md T028):
+ * - Orange/coral gradient background (from-orange-50 to-coral-50)
+ * - Consistent design tokens from frontend-design-system skill
+ * - Card styling: rounded-lg (8px), 2px borders, shadows
  * - Responsive layout (centered card on desktop, full-screen on mobile)
- * - Brand consistency with landing page
- * - Accessible navigation and links
+ * - 44px min touch targets for mobile accessibility
+ *
+ * Skills used:
+ * - frontend-design-system: Card patterns, gradient backgrounds, responsive layout
+ *   - Pattern: Card with 8px border-radius, 2px border, shadow-xl
+ *   - Pattern: Gradient background (orange-50 to coral-50 in light mode)
+ *   - Pattern: Consistent spacing and typography
+ * - building-nextjs-apps: Next.js 16 App Router patterns, metadata
  */
 
 import { Metadata } from "next";
@@ -24,12 +28,12 @@ export const metadata: Metadata = {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-purple-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-orange-50 via-white to-coral-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-950">
       {/* Header */}
       <header className="w-full p-4 md:p-6">
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400 transition-colors"
+          className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-primary dark:text-gray-400 dark:hover:text-primary transition-colors duration-300"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to home
@@ -39,11 +43,11 @@ export default function LoginPage() {
       {/* Main content */}
       <main className="flex-1 flex items-center justify-center px-4 py-8">
         <div className="w-full max-w-md">
-          {/* Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 md:p-8 border border-gray-200 dark:border-gray-700">
+          {/* Card (frontend-design-system pattern: 8px border-radius, 2px border) */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 md:p-8 border-2 border-gray-200 dark:border-gray-700">
             {/* Logo/Brand */}
             <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600 dark:from-purple-400 dark:to-indigo-400 mb-2">
+              <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary via-secondary to-accent dark:from-primary dark:to-secondary mb-2">
                 Todo Evolution
               </h1>
               <p className="text-gray-600 dark:text-gray-400">
@@ -70,7 +74,7 @@ export default function LoginPage() {
             <div className="text-center">
               <Link
                 href="/auth/register"
-                className="text-sm font-medium text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
+                className="text-sm font-medium text-primary hover:text-secondary dark:text-primary dark:hover:text-secondary transition-colors duration-300"
               >
                 Create a free account
               </Link>

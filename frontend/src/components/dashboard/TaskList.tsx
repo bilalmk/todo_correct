@@ -34,17 +34,21 @@ import {
 import {
   SortableContext,
   verticalListSortingStrategy,
+  arrayMove,
 } from "@dnd-kit/sortable";
 
 import { TaskCard } from "./TaskCard";
 import { TaskModal } from "./TaskModal";
 import { DeleteDialog } from "./DeleteDialog";
+import { EmptyState } from "./EmptyState"; // T057
 import { Skeleton } from "@/components/ui/skeleton";
 import { Task } from "@/types/task-schema";
 import { useTasks } from "@/contexts/TaskContext";
 import { useFilter } from "@/contexts/FilterContext";
 import { TaskFormData } from "@/lib/validation-schemas";
 import { toast } from "sonner";
+import { reorderTasks } from "@/lib/api-client";
+import { getUserUuidFromSession } from "@/lib/get-user-uuid";
 
 export function TaskList() {
   const { tasks, isLoading, refreshTasks, updateTask, deleteTask, completeTask } = useTasks();
@@ -63,6 +67,9 @@ export function TaskList() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeId, setActiveId] = useState<number | null>(null);
 
+  // T048: Optimistic UI state for drag-and-drop
+  const [optimisticTasks, setOptimisticTasks] = useState<Task[] | null>(null);
+
   // Drag and drop sensors
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -78,7 +85,17 @@ export function TaskList() {
     })
   );
 
-  // Filter and sort tasks
+  // T048: Check if filters are active (T050 requirement)
+  const hasActiveFilters = useMemo(() => {
+    return status !== "all" ||
+      priority !== "all" ||
+      selectedTags.length > 0 ||
+      dateRange.start !== null ||
+      dateRange.end !== null ||
+      searchQuery !== "";
+  }, [status, priority, selectedTags, dateRange, searchQuery]);
+
+  // Filter and sort tasks (T048: use optimistic tasks during drag operations)
   const filteredTasks = useMemo(() => {
     console.log('[TaskList] Filtering tasks:', {
       tasksCount: Array.isArray(tasks) ? tasks.length : 'not array',
@@ -89,13 +106,16 @@ export function TaskList() {
       tasks: tasks,
     });
 
+    // T048: Use optimistic tasks if available (during reorder operation)
+    const sourceTasks = optimisticTasks || tasks;
+
     // Safety check: ensure tasks is an array
-    if (!Array.isArray(tasks)) {
+    if (!Array.isArray(sourceTasks)) {
       console.log('[TaskList] Tasks is not array, returning empty');
       return [];
     }
 
-    let filtered = [...tasks];
+    let filtered = [...sourceTasks];
 
     // Filter by status
     if (status === "active") {
@@ -178,13 +198,13 @@ export function TaskList() {
     });
 
     console.log('[TaskList] After filtering and sorting:', {
-      originalCount: tasks.length,
+      originalCount: sourceTasks.length,
       filteredCount: filtered.length,
       filtered: filtered,
     });
 
     return filtered;
-  }, [tasks, status, priority, selectedTags, dateRange, searchQuery, sortBy, sortOrder]);
+  }, [tasks, optimisticTasks, status, priority, selectedTags, dateRange, searchQuery, sortBy, sortOrder]);
 
   // Handlers
   const handleComplete = async (taskId: number, completed: boolean) => {
@@ -289,20 +309,83 @@ export function TaskList() {
 
   // Drag and drop handlers
   const handleDragStart = (event: DragStartEvent) => {
+    // T050: Prevent drag if filters are active
+    if (hasActiveFilters) {
+      toast.error("Task reordering is only available in the default unfiltered view", {
+        description: "Please clear all filters to enable drag-and-drop reordering.",
+      });
+      return;
+    }
+
     setActiveId(event.active.id as number);
   };
 
-  const handleDragEnd = (_event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
     setActiveId(null);
 
-    // Show toast notification that reordering is coming soon (FR-047)
-    toast.info("Reordering functionality coming soon", {
-      description: "Drag-and-drop visual feedback is enabled, but task reordering will be implemented in a future update.",
-    });
+    // T050: Abort if filters are active
+    if (hasActiveFilters) {
+      return;
+    }
+
+    // Abort if dropped outside droppable area or same position
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    // Find indices
+    const oldIndex = filteredTasks.findIndex((t) => t.id === active.id);
+    const newIndex = filteredTasks.findIndex((t) => t.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) {
+      return;
+    }
+
+    // T048: Optimistic UI update (immediate visual feedback)
+    const reorderedTasks = arrayMove(filteredTasks, oldIndex, newIndex);
+    setOptimisticTasks(reorderedTasks);
+
+    try {
+      // Get user ID for API call
+      const userId = await getUserUuidFromSession();
+      if (!userId) {
+        throw new Error("User not authenticated");
+      }
+
+      // T046: Call reorder API with new task IDs order
+      const taskIds = reorderedTasks.map((t) => t.id);
+
+      // T049: Set timeout for API call (5 seconds)
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Request timeout")), 5000)
+      );
+
+      await Promise.race([
+        reorderTasks(userId, taskIds),
+        timeoutPromise,
+      ]);
+
+      // Success: refresh tasks from backend to confirm new order
+      await refreshTasks();
+      setOptimisticTasks(null); // Clear optimistic state
+
+      toast.success("Tasks reordered successfully");
+    } catch (error) {
+      // T049: Error handling - revert optimistic UI and show error
+      console.error("Failed to reorder tasks:", error);
+      setOptimisticTasks(null); // Revert to original order
+
+      toast.error("Failed to reorder tasks", {
+        description: error instanceof Error ? error.message : "Please try again",
+      });
+    }
   };
 
   const handleDragCancel = () => {
     setActiveId(null);
+    // T049: Revert optimistic update on cancel
+    setOptimisticTasks(null);
   };
 
   // Get the active task being dragged
@@ -327,28 +410,28 @@ export function TaskList() {
     );
   }
 
-  // Empty state
+  // T057: Professional empty state with CTA
   if (filteredTasks.length === 0) {
+    const hasFilters = searchQuery || selectedTags.length > 0 || dateRange.start || dateRange.end || status !== "all" || priority !== "all";
+    const isEmptyList = !tasks || tasks.length === 0;
+
     return (
-      <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-        <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
-          <Inbox className="h-8 w-8 text-gray-400 dark:text-gray-600" />
-        </div>
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-          {searchQuery || selectedTags.length > 0 || dateRange.start || dateRange.end
-            ? "No tasks found"
-            : (!tasks || tasks.length === 0)
-            ? "No tasks yet"
-            : "No tasks match your filters"}
-        </h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400 max-w-sm">
-          {searchQuery || selectedTags.length > 0 || dateRange.start || dateRange.end
-            ? "Try adjusting your filters or search query"
-            : (!tasks || tasks.length === 0)
-            ? "Create your first task to get started"
-            : "Try changing your filter settings"}
-        </p>
-      </div>
+      <EmptyState
+        title={hasFilters ? "No tasks found" : isEmptyList ? "No tasks yet" : "No tasks match your filters"}
+        description={
+          hasFilters
+            ? "Try adjusting your filters or search query to find what you're looking for."
+            : isEmptyList
+            ? "Create your first task to get started organizing your work."
+            : "Try changing your filter settings to see more tasks."
+        }
+        ctaText="Create Task"
+        onCtaClick={isEmptyList ? () => {
+          // Trigger parent create task modal
+          const createButton = document.querySelector('[data-create-task]') as HTMLButtonElement;
+          createButton?.click();
+        } : undefined}
+      />
     );
   }
 
@@ -380,10 +463,13 @@ export function TaskList() {
           </div>
         </SortableContext>
 
-        {/* Drag Overlay */}
+        {/* T047: Drag Overlay with lifted card shadow effect */}
         <DragOverlay>
           {activeTask ? (
-            <div className="opacity-90 cursor-grabbing">
+            <div
+              className="opacity-90 cursor-grabbing"
+              style={{ boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)' }}
+            >
               <TaskCard
                 task={activeTask}
                 onComplete={() => {}}

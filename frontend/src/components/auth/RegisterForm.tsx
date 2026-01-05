@@ -248,11 +248,11 @@ export function RegisterForm() {
           )}
         />
 
-        {/* Submit button */}
+        {/* Submit button (frontend-design-system: 44px height, gradient from primary to secondary) */}
         <Button
           type="submit"
           disabled={isLoading}
-          className="w-full h-11 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white mt-6"
+          className="w-full h-11 bg-gradient-to-r from-primary to-secondary hover:opacity-90 text-white mt-6 transition-opacity duration-300"
         >
           {isLoading ? (
             <>
@@ -269,7 +269,7 @@ export function RegisterForm() {
           By creating an account, you agree to our{" "}
           <button
             type="button"
-            className="text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 underline"
+            className="text-primary hover:text-secondary dark:text-primary dark:hover:text-secondary underline transition-colors duration-300"
             onClick={() => toast.info("Terms of Service coming soon!")}
           >
             Terms of Service
@@ -277,7 +277,7 @@ export function RegisterForm() {
           and{" "}
           <button
             type="button"
-            className="text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 underline"
+            className="text-primary hover:text-secondary dark:text-primary dark:hover:text-secondary underline transition-colors duration-300"
             onClick={() => toast.info("Privacy Policy coming soon!")}
           >
             Privacy Policy

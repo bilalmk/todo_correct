@@ -68,6 +68,12 @@ const config: Config = {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
+  		},
+  		backgroundImage: {
+  			'gradient-orange-coral': 'linear-gradient(135deg, #f97316 0%, #fb923c 100%)',
+  			'gradient-orange-amber': 'linear-gradient(135deg, #f97316 0%, #f59e0b 100%)',
+  			'gradient-coral-amber': 'linear-gradient(135deg, #fb923c 0%, #f59e0b 100%)',
+  			'gradient-orange-warm': 'linear-gradient(135deg, #f97316 0%, #fb923c 50%, #f59e0b 100%)'
   		}
   	}
   },

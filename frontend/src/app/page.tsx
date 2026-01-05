@@ -1,18 +1,26 @@
 /**
  * Landing Page - First impression marketing page
  *
- * Uses components from @/components/home following responsive design patterns
- * and Tech Innovation theme (purple primary color).
+ * Features (per tasks.md T026-T027):
+ * - Masthead with fixed navigation and mobile menu
+ * - Hero section with orange/coral gradients and animations
+ * - About section with mission statement and value props
+ * - Features grid with icon cards
+ * - Pricing section with Free and Premium tiers
+ * - Footer with image attributions and links
+ * - Smooth scroll behavior for anchor links (#features, #about, #pricing)
  *
- * Built following skills:
- * - @.claude/skills/panaversity/theme-factory (Tech Innovation theme)
- * - @.claude/skills/custom/frontend-design-system (responsive patterns)
- * - @.claude/skills/mjs/building-nextjs-apps (Next.js 16 patterns)
+ * Skills used:
+ * - building-nextjs-apps: Next.js 16 App Router patterns, metadata, smooth scroll
+ * - frontend-design-system: Responsive layout, component composition, orange/coral theme
  */
 
 import { Metadata } from "next";
+import { Masthead } from "@/components/home/Masthead";
 import { Hero } from "@/components/home/Hero";
 import { Features } from "@/components/home/Features";
+import { About } from "@/components/home/About";
+import { Pricing } from "@/components/home/Pricing";
 import { Footer } from "@/components/home/Footer";
 
 export const metadata: Metadata = {
@@ -45,10 +53,18 @@ export const metadata: Metadata = {
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen">
-      <Hero />
-      <Features />
-      <Footer />
-    </main>
+    <>
+      {/* Fixed Masthead Navigation (T026) */}
+      <Masthead />
+
+      {/* Main Content with Smooth Scroll (T027) */}
+      <main className="min-h-screen scroll-smooth">
+        <Hero />
+        <Features />
+        <About />
+        <Pricing />
+        <Footer />
+      </main>
+    </>
   );
 }

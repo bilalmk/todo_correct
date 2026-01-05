@@ -5,6 +5,7 @@
  *
  * Built following skills:
  * - @.claude/skills/custom/frontend-design-system (Form patterns, Modal behavior FR-024a)
+ * - @.claude/skills/mjs/building-nextjs-apps (Next.js patterns)
  * - @.claude/skills/custom/frontend-design-system/references/shadcn-components (Dialog, Form, Calendar)
  *
  * Features:
@@ -16,6 +17,7 @@
  * - Reminder time picker (conditional on due date)
  * - ESC to close, no outside click dismiss (FR-024a)
  * - Loading states
+ * - Built-in Radix UI animations
  */
 
 import { useEffect } from "react";
@@ -90,7 +92,7 @@ export function TaskModal({
       priority: "medium",
       due_date: "",
       reminder_at: "", // Match backend field name
-      recurrence_pattern: "none", // Match backend field name
+      recurrence_pattern: undefined, // Optional field - undefined means no recurrence
       tags: [],
     },
   });
@@ -119,7 +121,7 @@ export function TaskModal({
         priority: task.priority || "medium", // Optional field, default to medium
         due_date: task.due_date || "",
         reminder_at: toDatetimeLocal(task.reminder_at), // Convert to datetime-local format
-        recurrence_pattern: task.recurrence_pattern || "none", // Backend field name is recurrence_pattern
+        recurrence_pattern: task.recurrence_pattern || undefined, // Backend field name is recurrence_pattern
         tags: Array.isArray(task.tags) ? task.tags.map((t) => t.id) : [], // Extract tag IDs from objects
         completed: task.completed, // Include completed status for edit mode
       };
@@ -135,7 +137,7 @@ export function TaskModal({
         priority: "medium",
         due_date: "",
         reminder_at: "",
-        recurrence_pattern: "none",
+        recurrence_pattern: undefined,
         tags: [],
       });
     }
@@ -323,10 +325,10 @@ export function TaskModal({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
                       <SelectItem value="daily">Daily</SelectItem>
                       <SelectItem value="weekly">Weekly</SelectItem>
                       <SelectItem value="monthly">Monthly</SelectItem>
+                      <SelectItem value="custom">Custom</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />

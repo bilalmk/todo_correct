@@ -4,23 +4,25 @@
  * TaskStats Component
  *
  * Built following skills:
- * - @.claude/skills/custom/frontend-design-system (Card patterns, Badge usage)
+ * - @.claude/skills/custom/frontend-design-system (Card patterns, Badge usage, gradient patterns)
+ * - @.claude/skills/mjs/building-nextjs-apps (Framer Motion patterns, count-up animations)
  * - @.claude/skills/custom/frontend-design-system/references/shadcn-components (Card)
  * - @.claude/skills/custom/frontend-design-system/references/responsive-design-patterns (Mobile-first grid)
  *
- * Features:
+ * Features (T053):
  * - Display task statistics: total, completed, pending, overdue
  * - Responsive grid layout: 2 cols on mobile, 4 cols on desktop
  * - shadcn/ui Card components with icon indicators
- * - Icons from lucide-react with color coding
+ * - Gradient backgrounds with orange/coral theme
+ * - Count-up animations using Framer Motion
  * - Full dark mode support with semantic Tailwind colors
  * - Computed statistics from task list
  * - WCAG 2.1 AA compliant accessibility
  * - Motion animations on mount
  */
 
-import { useMemo } from "react";
-import { motion } from "framer-motion";
+import { useMemo, useEffect, useState } from "react";
+import { motion, useAnimationControls } from "framer-motion";
 import {
   CheckCircle2,
   Circle,
@@ -42,8 +44,41 @@ interface StatCard {
   value: number;
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   iconColor: string;
-  bgColor: string;
+  bgGradient: string; // T053: Gradient background instead of solid
   description?: string;
+}
+
+/**
+ * T053: Count-up animation component using Framer Motion
+ * Animates number from 0 to target value over 800ms
+ */
+function CountUp({ value }: { value: number }) {
+  const [displayValue, setDisplayValue] = useState(0);
+
+  useEffect(() => {
+    const duration = 800; // 800ms animation
+    const startTime = Date.now();
+    const startValue = 0;
+
+    const animate = () => {
+      const now = Date.now();
+      const progress = Math.min((now - startTime) / duration, 1);
+
+      // Easing function (easeOutExpo)
+      const easedProgress = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
+      const currentValue = Math.floor(startValue + (value - startValue) * easedProgress);
+
+      setDisplayValue(currentValue);
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+
+    animate();
+  }, [value]);
+
+  return <span>{displayValue}</span>;
 }
 
 /**
@@ -82,15 +117,15 @@ function computeStats(tasks: Task[]): {
 export function TaskStats({ tasks }: TaskStatsProps) {
   const stats = useMemo(() => computeStats(tasks), [tasks]);
 
-  // Build stat cards with icons and styling
+  // T053: Build stat cards with gradient backgrounds (orange/coral theme)
   const statCards: StatCard[] = [
     {
       id: "total",
       label: "Total Tasks",
       value: stats.total,
       icon: ListTodo,
-      iconColor: "text-blue-600 dark:text-blue-400",
-      bgColor: "bg-blue-50 dark:bg-blue-950/30",
+      iconColor: "text-orange-600 dark:text-orange-400",
+      bgGradient: "bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950/30 dark:to-orange-900/20",
       description: "All tasks in your list",
     },
     {
@@ -99,7 +134,7 @@ export function TaskStats({ tasks }: TaskStatsProps) {
       value: stats.completed,
       icon: CheckCircle2,
       iconColor: "text-green-600 dark:text-green-400",
-      bgColor: "bg-green-50 dark:bg-green-950/30",
+      bgGradient: "bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950/30 dark:to-emerald-900/20",
       description: "Tasks you've finished",
     },
     {
@@ -107,8 +142,8 @@ export function TaskStats({ tasks }: TaskStatsProps) {
       label: "Pending",
       value: stats.pending,
       icon: Circle,
-      iconColor: "text-yellow-600 dark:text-yellow-400",
-      bgColor: "bg-yellow-50 dark:bg-yellow-950/30",
+      iconColor: "text-amber-600 dark:text-amber-400",
+      bgGradient: "bg-gradient-to-br from-amber-50 to-yellow-100 dark:from-amber-950/30 dark:to-yellow-900/20",
       description: "Tasks waiting to be done",
     },
     {
@@ -117,7 +152,7 @@ export function TaskStats({ tasks }: TaskStatsProps) {
       value: stats.overdue,
       icon: AlertTriangle,
       iconColor: "text-red-600 dark:text-red-400",
-      bgColor: "bg-red-50 dark:bg-red-950/30",
+      bgGradient: "bg-gradient-to-br from-red-50 to-rose-100 dark:from-red-950/30 dark:to-rose-900/20",
       description: "Tasks past their due date",
     },
   ];
@@ -140,10 +175,10 @@ export function TaskStats({ tasks }: TaskStatsProps) {
               initial="initial"
               animate="animate"
             >
-              <Card className="transition-all duration-200 hover:shadow-lg hover:border-purple-200 dark:hover:border-purple-800">
+              <Card className="transition-all duration-300 hover:shadow-lg hover:border-orange-300/50 dark:hover:border-orange-600/50 overflow-hidden">
                 <CardContent className="p-4 md:p-5 flex flex-col h-full">
-                  {/* Icon container */}
-                  <div className={`${stat.bgColor} rounded-lg p-2 md:p-3 w-fit mb-3 md:mb-4`}>
+                  {/* T053: Icon container with gradient background */}
+                  <div className={`${stat.bgGradient} rounded-lg p-2 md:p-3 w-fit mb-3 md:mb-4 shadow-sm`}>
                     <Icon className={`h-5 w-5 md:h-6 md:w-6 ${stat.iconColor}`} />
                   </div>
 
@@ -152,10 +187,10 @@ export function TaskStats({ tasks }: TaskStatsProps) {
                     {stat.label}
                   </h3>
 
-                  {/* Value */}
+                  {/* T053: Count-up animated value */}
                   <div className="mb-2 md:mb-3">
                     <p className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
-                      {stat.value}
+                      <CountUp value={stat.value} />
                     </p>
                   </div>
 

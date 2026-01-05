@@ -121,10 +121,11 @@ export function FilterBar({ onCreateTask }: FilterBarProps) {
           )}
         </div>
 
-        {/* Create Task button */}
+        {/* Create Task button (frontend-design-system: 44px min-height, gradient) */}
         <Button
           onClick={onCreateTask}
-          className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 min-h-[44px] sm:min-h-0"
+          data-create-task
+          className="bg-gradient-to-r from-primary to-secondary hover:opacity-90 transition-opacity duration-300 min-h-[44px] sm:min-h-0"
         >
           <Plus className="h-4 w-4 mr-2" />
           New Task
@@ -139,7 +140,7 @@ export function FilterBar({ onCreateTask }: FilterBarProps) {
           <SlidersHorizontal className="h-4 w-4 mr-2" />
           Filters
           {activeFilterCount > 0 && (
-            <Badge className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center bg-purple-600">
+            <Badge className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center bg-primary">
               {activeFilterCount}
             </Badge>
           )}
@@ -208,7 +209,7 @@ export function FilterBar({ onCreateTask }: FilterBarProps) {
               <Button variant="outline" className="w-full sm:w-auto">
                 Tags
                 {selectedTags.length > 0 && (
-                  <Badge className="ml-2 h-5 min-w-[20px] rounded-full px-1 bg-purple-600">
+                  <Badge className="ml-2 h-5 min-w-[20px] rounded-full px-1 bg-primary">
                     {selectedTags.length}
                   </Badge>
                 )}
@@ -251,12 +252,12 @@ export function FilterBar({ onCreateTask }: FilterBarProps) {
             </PopoverContent>
           </Popover>
 
-          {/* Reset filters */}
+          {/* Reset filters (frontend-design-system: orange/coral hover) */}
           {activeFilterCount > 0 && (
             <Button
               variant="ghost"
               onClick={resetFilters}
-              className="w-full sm:w-auto text-purple-600 hover:text-purple-700 dark:text-purple-400"
+              className="w-full sm:w-auto text-primary hover:text-secondary dark:text-primary transition-colors duration-300"
             >
               <X className="h-4 w-4 mr-2" />
               Reset Filters

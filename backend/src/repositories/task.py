@@ -186,3 +186,60 @@ class TaskRepository:
         task.updated_at = datetime.now(timezone.utc)
         await self.session.flush()
         return True
+
+    async def reorder_tasks(self, user_id: UUID, task_ids: List[int]) -> bool:
+        """
+        Reorder tasks by updating sort_order based on drag-and-drop array position.
+
+        T041 - Uses sqlmodel-expert bulk update pattern for efficient transaction handling.
+
+        Algorithm:
+        1. Fetch all tasks by IDs with user isolation
+        2. Validate all tasks belong to the user
+        3. Update sort_order for each task (position in array = sort_order)
+        4. Commit transaction (caller responsibility)
+
+        Args:
+            user_id: Owner user ID (ensures user isolation)
+            task_ids: Ordered array of task IDs (position = new sort_order)
+
+        Returns:
+            True if reorder succeeded, False if any task not found or access denied
+
+        Raises:
+            None - Returns False on validation errors
+
+        Example:
+            task_ids = [5, 2, 8, 1, 3]
+            # Task 5 → sort_order=1, Task 2 → sort_order=2, etc.
+        """
+        # Validate all tasks exist and belong to user (sqlmodel-expert: user isolation pattern)
+        stmt = (
+            select(Task)
+            .where(Task.id.in_(task_ids))
+            .where(Task.user_id == user_id)
+            .where(Task.deleted_at.is_(None))
+        )
+        result = await self.session.execute(stmt)
+        tasks = list(result.scalars().all())
+
+        # Validation: ensure all requested tasks were found
+        if len(tasks) != len(task_ids):
+            return False  # Some tasks not found or access denied
+
+        # Build task ID → Task object mapping for efficient lookup
+        task_map = {task.id: task for task in tasks}
+
+        # Update sort_order for each task (sqlmodel-expert: bulk update pattern)
+        # Use sequential increments of 1000 per data-model.md spec (1000, 2000, 3000, ...)
+        now = datetime.now(timezone.utc)
+        for position, task_id in enumerate(task_ids, start=1):
+            task = task_map.get(task_id)
+            if task:  # Extra safety check
+                task.sort_order = position * 1000  # Sequential: 1000, 2000, 3000, ...
+                task.updated_at = now
+
+        # Flush changes to database (sqlmodel-expert: transaction pattern)
+        # Note: Caller must commit() the session to finalize transaction
+        await self.session.flush()
+        return True

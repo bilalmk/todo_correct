@@ -13,7 +13,7 @@ export function Footer() {
         <div className="py-12 md:py-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-12">
           {/* Brand section */}
           <div className="lg:col-span-2">
-            <h3 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600 dark:from-purple-400 dark:to-indigo-400 mb-4">
+            <h3 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary dark:from-primary dark:to-secondary mb-4">
               Todo Evolution
             </h3>
             <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md">
@@ -27,7 +27,7 @@ export function Footer() {
                 href="https://github.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center hover:bg-purple-100 dark:hover:bg-purple-900 transition-colors"
+                className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center hover:bg-primary/10 dark:hover:bg-primary/20 transition-colors"
                 aria-label="GitHub"
               >
                 <Github className="h-5 w-5 text-gray-700 dark:text-gray-300" />
@@ -36,7 +36,7 @@ export function Footer() {
                 href="https://twitter.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center hover:bg-purple-100 dark:hover:bg-purple-900 transition-colors"
+                className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center hover:bg-primary/10 dark:hover:bg-primary/20 transition-colors"
                 aria-label="Twitter"
               >
                 <Twitter className="h-5 w-5 text-gray-700 dark:text-gray-300" />
@@ -45,14 +45,14 @@ export function Footer() {
                 href="https://linkedin.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center hover:bg-purple-100 dark:hover:bg-purple-900 transition-colors"
+                className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center hover:bg-primary/10 dark:hover:bg-primary/20 transition-colors"
                 aria-label="LinkedIn"
               >
                 <Linkedin className="h-5 w-5 text-gray-700 dark:text-gray-300" />
               </a>
               <a
                 href="mailto:hello@todoevolution.com"
-                className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center hover:bg-purple-100 dark:hover:bg-purple-900 transition-colors"
+                className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center hover:bg-primary/10 dark:hover:bg-primary/20 transition-colors"
                 aria-label="Email"
               >
                 <Mail className="h-5 w-5 text-gray-700 dark:text-gray-300" />
@@ -69,7 +69,7 @@ export function Footer() {
               <li>
                 <Link
                   href="/auth/register"
-                  className="text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                  className="text-gray-600 dark:text-gray-400 hover:text-primary dark:hover:text-primary transition-colors"
                 >
                   Get Started
                 </Link>
@@ -77,7 +77,7 @@ export function Footer() {
               <li>
                 <Link
                   href="/auth/login"
-                  className="text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                  className="text-gray-600 dark:text-gray-400 hover:text-primary dark:hover:text-primary transition-colors"
                 >
                   Sign In
                 </Link>
@@ -125,6 +125,32 @@ export function Footer() {
           </div>
         </div>
 
+        {/* Image Attributions (T025) */}
+        <div className="py-6 border-t border-gray-200 dark:border-gray-800">
+          <div className="text-center mb-4">
+            <p className="text-xs text-gray-500 dark:text-gray-600 mb-2">
+              Professional images from{" "}
+              <a
+                href="https://unsplash.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                Unsplash
+              </a>{" "}
+              and{" "}
+              <a
+                href="https://pexels.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                Pexels
+              </a>
+            </p>
+          </div>
+        </div>
+
         {/* Bottom bar */}
         <div className="py-6 border-t border-gray-200 dark:border-gray-800">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
@@ -134,14 +160,14 @@ export function Footer() {
                 href="https://claude.com/claude-code"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-purple-600 dark:text-purple-400 hover:underline"
+                className="text-primary dark:text-primary hover:underline"
               >
                 Claude Code
               </a>{" "}
               and Spec-Driven Development.
             </p>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Hackathon Project • Phase II Submission
+              Hackathon Project • Phase III Submission
             </p>
           </div>
         </div>

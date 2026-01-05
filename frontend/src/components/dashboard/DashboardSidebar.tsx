@@ -110,9 +110,9 @@ export function DashboardSidebar() {
         }`}
       >
         <div className="flex flex-col h-full p-4">
-          {/* Logo/Brand */}
+          {/* Logo/Brand (frontend-design-system: orange/coral gradient) */}
           <div className="mb-8 mt-12 lg:mt-0">
-            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600 dark:from-purple-400 dark:to-indigo-400">
+            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary via-secondary to-accent dark:from-primary dark:to-secondary">
               Todo Evolution
             </h1>
           </div>
@@ -127,9 +127,9 @@ export function DashboardSidebar() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors duration-300 ${
                     isActive
-                      ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+                      ? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary"
                       : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                   }`}
                   onClick={() => setIsMobileMenuOpen(false)}
@@ -141,10 +141,10 @@ export function DashboardSidebar() {
             })}
           </nav>
 
-          {/* User section */}
+          {/* User section (frontend-design-system: orange/coral gradient) */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
             <div className="flex items-center gap-3 mb-4 px-2">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
                 <User className="h-5 w-5 text-white" />
               </div>
               <div className="flex-1 min-w-0">

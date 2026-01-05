@@ -113,13 +113,16 @@ export function TaskCard({ task, onComplete, onEdit, onDelete }: TaskCardProps) 
       exit="exit"
       onHoverStart={() => setIsHovered(true)}
       onHoverEnd={() => setIsHovered(false)}
+      // T054: Enhanced hover effects with translateY and increased shadow
+      whileHover={{ y: -2 }}
+      transition={{ duration: 0.2 }}
     >
       <Card
-        className={`transition-all duration-200 ${
+        className={`transition-all duration-300 ${
           task.completed ? "opacity-60" : ""
         } ${
           isHovered
-            ? "shadow-lg border-purple-200 dark:border-purple-800"
+            ? "shadow-xl border-orange-300/50 dark:border-orange-600/50"
             : "shadow-sm"
         }`}
       >
@@ -195,7 +198,7 @@ export function TaskCard({ task, onComplete, onEdit, onDelete }: TaskCardProps) 
                 )}
 
                 {/* Recurrence badge */}
-                {task.recurrence_pattern && task.recurrence_pattern !== "none" && (
+                {task.recurrence_pattern && (
                   <Badge variant="secondary" className="gap-1">
                     <Repeat className="h-3 w-3" />
                     {task.recurrence_pattern.charAt(0).toUpperCase() + task.recurrence_pattern.slice(1)}

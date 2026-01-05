@@ -154,7 +154,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // T023: Create task via API - returns created task for tag assignment
-  const addTask = async (input: Omit<Task, "id" | "created_at" | "updated_at">): Promise<Task> => {
+  const addTask = async (input: Omit<Task, "id" | "created_at" | "updated_at" | "tags">): Promise<Task> => {
     try {
       setError(null);
 
@@ -164,6 +164,9 @@ export function TaskProvider({ children }: { children: ReactNode }) {
       if (!userId) {
         throw new Error("Please log in to create tasks");
       }
+
+      // Debug: Log what we're sending
+      console.log('[TaskContext] Creating task with data:', JSON.stringify(input, null, 2));
 
       // Create task via backend API
       const createdTask = await apiClient.post<Task>(`/api/v1/${userId}/tasks`, input);

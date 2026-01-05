@@ -26,8 +26,8 @@ class QueryService:
         due_before: Optional[datetime] = None,
         due_after: Optional[datetime] = None,
         search: Optional[str] = None,
-        sort_by: str = "created_at",
-        order: str = "desc",
+        sort_by: str = "sort_order",
+        order: str = "asc",
     ) -> Select:
         """
         Build dynamic task query with filters, full-text search, and sorting.
@@ -43,7 +43,7 @@ class QueryService:
             due_before: Filter tasks due before this datetime
             due_after: Filter tasks due after this datetime
             search: Full-text search query (searches title and description)
-            sort_by: Column to sort by ("created_at", "due_date", "priority", "title")
+            sort_by: Column to sort by ("created_at", "due_date", "priority", "title", "sort_order")
             order: Sort order ("asc" or "desc")
 
         Returns:
@@ -135,8 +135,8 @@ class QueryService:
                 ).bindparams(search=search)
             )
 
-        # Sorting
-        sort_column = getattr(Task, sort_by, Task.created_at)
+        # Sorting (T043 - sqlmodel-expert: defaults to sort_order for drag-and-drop)
+        sort_column = getattr(Task, sort_by, Task.sort_order)
         if order == "asc":
             stmt = stmt.order_by(sort_column.asc())
         else:

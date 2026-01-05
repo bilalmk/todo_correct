@@ -11,7 +11,7 @@ from ..api.deps import verify_user_match
 from ..core.database import get_session
 from ..models.user import User
 from ..repositories.task import TaskRepository
-from ..schemas.task import TaskCreate, TaskUpdate, TaskReplace, TaskResponse
+from ..schemas.task import TaskCreate, TaskUpdate, TaskReplace, TaskResponse, ReorderRequest
 from ..services.query import QueryService
 from ..services.notification import NotificationService
 
@@ -94,13 +94,13 @@ async def list_tasks(
         max_length=255
     ),
     sort_by: str = Query(
-        "created_at",
-        description="Column to sort by",
-        pattern="^(created_at|due_date|priority|title)$"
+        "sort_order",
+        description="Column to sort by (T043: defaults to sort_order for drag-and-drop)",
+        pattern="^(created_at|due_date|priority|title|sort_order)$"
     ),
     order: str = Query(
-        "desc",
-        description="Sort order: 'asc' or 'desc'",
+        "asc",
+        description="Sort order: 'asc' or 'desc' (T043: defaults to asc for sort_order)",
         pattern="^(asc|desc)$"
     ),
 ):
@@ -115,11 +115,11 @@ async def list_tasks(
     - **due_after**: Filter tasks due after specified datetime
     - **search**: Full-text search in title and description
 
-    **Sorting**:
-    - **sort_by**: Column to sort by (created_at, due_date, priority, title)
+    **Sorting** (T043 - sqlmodel-expert sorting pattern):
+    - **sort_by**: Column to sort by (created_at, due_date, priority, title, sort_order)
     - **order**: Sort order (asc or desc)
 
-    **Default behavior**: Returns all tasks sorted by created_at descending (newest first).
+    **Default behavior** (T043): Returns all tasks sorted by sort_order ascending (drag-and-drop order).
 
     Soft-deleted tasks are excluded. Each task includes nested tags.
     """
@@ -327,3 +327,91 @@ async def delete_task(
 
     await session.commit()
     # 204 No Content - no response body
+
+
+@router.patch(
+    "/api/v1/{user_id}/tasks/reorder",
+    status_code=status.HTTP_200_OK,
+    summary="Reorder tasks via drag-and-drop",
+    tags=["Tasks"],
+)
+async def reorder_tasks(
+    reorder_data: ReorderRequest,
+    user: User = Depends(verify_user_match),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Reorder tasks by updating sort_order based on drag-and-drop array position.
+
+    T042 - Uses betterauth-fastapi-jwt-bridge for JWT validation via verify_user_match.
+
+    **Request Body:**
+    - **task_ids**: Ordered array of task IDs (position = new sort_order)
+
+    **Security:**
+    - JWT authentication required (Authorization: Bearer token)
+    - User isolation enforced (verify_user_match dependency)
+    - All tasks must belong to authenticated user
+
+    **Returns:**
+    - 200 OK: Reorder successful, returns confirmation message
+    - 400 Bad Request: Invalid task IDs or validation error
+    - 401 Unauthorized: Missing or invalid JWT token
+    - 403 Forbidden: Task belongs to different user
+    - 404 Not Found: One or more tasks not found
+
+    **Example Request:**
+    ```json
+    {
+        "task_ids": [5, 2, 8, 1, 3]
+    }
+    ```
+
+    **Result:** Task 5 → sort_order=1, Task 2 → sort_order=2, etc.
+    """
+    repo = TaskRepository(session)
+
+    # Validate all task IDs exist and belong to user (T044 - error handling)
+    # Fetch tasks first to identify invalid IDs
+    from sqlmodel import select
+    from ..models.task import Task
+
+    stmt = (
+        select(Task.id)
+        .where(Task.id.in_(reorder_data.task_ids))
+        .where(Task.user_id == user.uuid)
+        .where(Task.deleted_at.is_(None))
+    )
+    result = await session.execute(stmt)
+    valid_task_ids = set(result.scalars().all())
+
+    # Check for invalid IDs (FR-019b structured error response)
+    invalid_ids = [task_id for task_id in reorder_data.task_ids if task_id not in valid_task_ids]
+    if invalid_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "Invalid task IDs provided",
+                "code": "INVALID_TASK_IDS",
+                "invalid_ids": invalid_ids
+            }
+        )
+
+    # Call repository reorder method (validates ownership + updates sort_order)
+    # betterauth-fastapi-jwt-bridge: user.uuid extracted from verified JWT token
+    success = await repo.reorder_tasks(user.uuid, reorder_data.task_ids)
+
+    if not success:
+        # This should not happen if validation above passed, but keep for safety
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to reorder tasks"
+        )
+
+    # Commit transaction (sqlmodel-expert pattern)
+    await session.commit()
+
+    return {
+        "message": "Tasks reordered successfully",
+        "updated": len(reorder_data.task_ids)  # Match test expectations
+    }

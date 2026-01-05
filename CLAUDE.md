@@ -575,6 +575,198 @@ When project constraints conflict with constitutional principles:
 
 ---
 
+## Available Skills Reference
+
+This project includes **25 specialized skills** organized in three categories. Use these skills throughout the development lifecycle by attaching them to relevant spec/plan/task generation workflows.
+
+### Custom Skills (.claude/skills/custom/) - Project-Specific
+
+**When to Use**: During Phase II-V implementation for hackathon-specific technology stack.
+
+1. **betterauth-fastapi-jwt-bridge**
+   - **Purpose**: Better Auth (Next.js) + FastAPI JWT token verification bridge
+   - **Use Cases**: Phase II-V authentication integration
+   - **Contains**: API client (TypeScript), auth dependencies (Python), JWT verification, JWKS approach
+   - **Attach When**: Implementing authentication endpoints, securing API routes, token validation
+
+2. **fastapi-expert**
+   - **Purpose**: FastAPI backend development patterns and best practices
+   - **Use Cases**: Phase II-V backend API development
+   - **Contains**: Dockerfiles, K8s deployment, project templates (auth, config, database, models)
+   - **References**: Advanced features, database patterns, deployment strategies, security
+   - **Attach When**: Creating API endpoints, database models, authentication, deployment configs
+
+3. **sqlmodel-expert**
+   - **Purpose**: SQLModel ORM patterns for Neon PostgreSQL
+   - **Use Cases**: Phase II-V database modeling and migrations
+   - **Contains**: Example models, migration scripts, init_db scripts
+   - **References**: Advanced models, migrations, query optimization
+   - **Attach When**: Designing database schema, writing migrations, optimizing queries
+
+4. **frontend-design-system**
+   - **Purpose**: Frontend UI component patterns (shadcn/ui, Chakra, Material UI, Tailwind)
+   - **Use Cases**: Phase II-V frontend development
+   - **Contains**: Task form template, todo card template
+   - **References**: Component libraries comparison, responsive design patterns
+   - **Attach When**: Building UI components, choosing design system, responsive layouts
+
+---
+
+### MJS Skills (.claude/skills/mjs/) - General Development
+
+**When to Use**: Throughout all phases for specific technical capabilities.
+
+5. **browsing-with-playwright**
+   - **Purpose**: Browser automation and web scraping with Playwright
+   - **Use Cases**: Testing, web automation, E2E tests
+   - **Attach When**: Writing browser tests, automating UI workflows
+
+6. **building-chat-interfaces**
+   - **Purpose**: ChatKit integration patterns for Next.js
+   - **Use Cases**: Phase III AI chatbot UI development
+   - **References**: ChatKit integration, Next.js httpOnly proxy patterns
+   - **Attach When**: Implementing chat UI, OpenAI ChatKit integration
+
+7. **building-chat-widgets**
+   - **Purpose**: Chat widget patterns for embedded chat
+   - **Use Cases**: Phase III conversational interfaces
+   - **References**: Server action handlers, widget patterns
+   - **Attach When**: Building embeddable chat widgets, server actions
+
+8. **building-mcp-servers**
+   - **Purpose**: MCP (Model Context Protocol) server development
+   - **Use Cases**: Phase III MCP server for task management
+   - **References**: Node.js & Python MCP servers, best practices, taskflow patterns, evaluation
+   - **Attach When**: Creating MCP tools, implementing task CRUD via MCP
+
+9. **building-nextjs-apps**
+   - **Purpose**: Next.js 16+ App Router patterns
+   - **Use Cases**: Phase II-V frontend development
+   - **References**: Next.js 16 patterns, datetime handling, frontend design
+   - **Attach When**: Creating Next.js pages, server components, API routes
+
+10. **configuring-better-auth**
+    - **Purpose**: Better Auth setup and configuration
+    - **Use Cases**: Phase II authentication setup
+    - **References**: Auth server setup, SSO client integration
+    - **Attach When**: Configuring Better Auth, setting up SSO
+
+11. **context-degradation**
+    - **Purpose**: Detect and handle context window degradation
+    - **Use Cases**: Long-running spec/plan/task sessions
+    - **Attach When**: Managing large context, preventing degradation
+
+12. **context-fundamentals**
+    - **Purpose**: Context management fundamentals
+    - **Use Cases**: All phases for efficient context usage
+    - **References**: Context components, management strategies
+    - **Attach When**: Optimizing prompts, managing conversation context
+
+13. **context-optimization**
+    - **Purpose**: Context optimization techniques
+    - **Use Cases**: Large spec/plan documents
+    - **References**: Optimization techniques, compaction strategies
+    - **Attach When**: Reducing token usage, compacting context
+
+14. **multi-agent-patterns**
+    - **Purpose**: Multi-agent coordination patterns
+    - **Use Cases**: Complex workflows requiring multiple agents
+    - **References**: Coordination frameworks, agent orchestration
+    - **Attach When**: Coordinating multiple Claude Code agents
+
+15. **nextjs-devtools**
+    - **Purpose**: Next.js development tooling
+    - **Use Cases**: Phase II-V frontend debugging
+    - **Attach When**: Debugging Next.js apps, development workflows
+
+16. **tool-design**
+    - **Purpose**: AI tool design best practices
+    - **Use Cases**: Phase III MCP tool design
+    - **References**: Best practices, description generation
+    - **Attach When**: Designing MCP tools, writing tool descriptions
+
+---
+
+### Panaversity Skills (.claude/skills/panaversity/) - Document Automation
+
+**When to Use**: For documentation, presentation, and office automation tasks.
+
+17. **browser-use**
+    - **Purpose**: Browser automation utilities
+    - **Use Cases**: Web scraping, automated browsing
+    - **Attach When**: Automating web interactions
+
+18. **context7-efficient**
+    - **Purpose**: Efficient context management with context7 tools
+    - **Use Cases**: Advanced context optimization
+    - **Attach When**: Using context7 MCP server
+
+19. **doc-coauthoring**
+    - **Purpose**: Collaborative document authoring
+    - **Use Cases**: Team documentation, co-authoring workflows
+    - **Attach When**: Creating collaborative documents
+
+20. **docx**
+    - **Purpose**: Microsoft Word document generation (OOXML)
+    - **Use Cases**: Generating Word documents, reports
+    - **References**: OOXML schemas, docx.js patterns
+    - **Attach When**: Creating .docx files, documentation
+
+21. **internal-comms**
+    - **Purpose**: Internal communications templates
+    - **Use Cases**: Team communications, announcements
+    - **Attach When**: Generating internal docs, memos
+
+22. **pdf**
+    - **Purpose**: PDF document handling and generation
+    - **Use Cases**: Creating PDF reports, documentation
+    - **Attach When**: Generating PDF outputs
+
+23. **pptx**
+    - **Purpose**: PowerPoint presentation generation
+    - **Use Cases**: Creating presentation decks
+    - **Attach When**: Generating .pptx files for demos
+
+24. **skill-creator**
+    - **Purpose**: Create new custom skills
+    - **Use Cases**: Building reusable intelligence (Bonus: +200 points)
+    - **Attach When**: Creating new skills for deployment patterns
+
+25. **theme-factory**
+    - **Purpose**: Theme and styling generation
+    - **Use Cases**: Generating color schemes, design tokens
+    - **Attach When**: Creating design systems
+
+26. **xlsx**
+    - **Purpose**: Excel spreadsheet generation
+    - **Use Cases**: Creating data exports, reports
+    - **Attach When**: Generating .xlsx files
+
+---
+
+### Skills Usage Guidelines
+
+**How to Attach Skills**:
+- When running `/sp.specify`, `/sp.plan`, or `/sp.tasks`, mention relevant skills in the prompt
+- Example: "Generate tasks for authentication using **betterauth-fastapi-jwt-bridge** and **fastapi-expert** skills"
+- Skills provide templates, patterns, and best practices to guide implementation
+
+**Phase-Specific Skill Recommendations**:
+
+| Phase | Primary Skills | Optional Skills |
+|-------|---------------|-----------------|
+| **Phase II** (Web App) | fastapi-expert, sqlmodel-expert, frontend-design-system, betterauth-fastapi-jwt-bridge, building-nextjs-apps, configuring-better-auth | context-optimization, tool-design |
+| **Phase III** (Chatbot) | building-mcp-servers, building-chat-interfaces, fastapi-expert, sqlmodel-expert | building-chat-widgets, multi-agent-patterns |
+| **Phase IV** (K8s) | fastapi-expert (Dockerfile, K8s), skill-creator | browser-use, browsing-with-playwright |
+| **Phase V** (Cloud) | fastapi-expert (deployment), skill-creator | context-degradation, multi-agent-patterns |
+
+**Bonus Points Strategy**:
+- Use **skill-creator** to build deployment automation skills (+200 points: Cloud-Native Blueprints)
+- Document all custom skills in `specs/bonus-skills/` directory
+- Reference skills in demo video to showcase reusable intelligence
+
+---
+
 ## Quick Reference
 
 **Constitution Location**: `.specify/memory/constitution.md`
@@ -587,12 +779,17 @@ When project constraints conflict with constitutional principles:
 
 ---
 
-**Last Updated**: 2025-12-29
+**Last Updated**: 2026-01-03
 **Hackathon**: Panaversity Evolution of Todo - Hackathon II
 
 ## Active Technologies
 - Python 3.11+ (backend), TypeScript/Next.js 16+ (frontend) (001-setup-auth-foundation)
 - Neon Serverless PostgreSQL with SQLModel ORM (001-setup-auth-foundation)
+- @dnd-kit (drag-and-drop), Framer Motion (animations) (006-ui-enhancement)
+- shadcn/ui components, Tailwind CSS 3.4+ (006-ui-enhancement)
+- Better Auth + FastAPI JWT integration (005-frontend-backend-integration)
 
 ## Recent Changes
+- 006-ui-enhancement: Added @dnd-kit for drag-and-drop task reordering, Framer Motion for animations (page transitions, hero animations), gradient backgrounds with orange/coral theme
+- 006-ui-enhancement: Implemented page transition animations (T021a) - fade-in/slide-up with 300ms duration for all route changes
 - 001-setup-auth-foundation: Added Python 3.11+ (backend), TypeScript/Next.js 16+ (frontend)

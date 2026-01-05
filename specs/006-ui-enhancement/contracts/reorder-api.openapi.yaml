@@ -1,0 +1,446 @@
+openapi: 3.0.3
+info:
+  title: Task Reordering API
+  version: 1.0.0
+  description: |
+    API endpoint for manually reordering user tasks via drag-and-drop interface.
+
+    **Feature**: Enhanced User Interface with Drag-and-Drop Reordering (006-ui-enhancement)
+
+    **Authentication**: JWT Bearer token required in Authorization header
+
+    **User Isolation**: All tasks are scoped to authenticated user. The `user_id` in the path
+    must match the `user_id` claim in the JWT token, otherwise a 403 Forbidden error is returned.
+
+    **Sort Order Strategy**: Sequential increments (1000, 2000, 3000, ...) assigned based on
+    array index position. Only tasks in the `task_ids` array are updated; other tasks retain
+    their existing `sort_order` values.
+
+  contact:
+    name: Todo Evolution Hackathon Team
+    email: support@todoevolution.dev
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: https://api.todoevolution.dev
+    description: Production server
+
+tags:
+  - name: Tasks
+    description: Task management operations
+
+paths:
+  /api/v1/{user_id}/tasks/reorder:
+    patch:
+      summary: Reorder user tasks
+      description: |
+        Updates the `sort_order` field for multiple tasks based on the provided array order.
+
+        **Algorithm**:
+        1. Validate all `task_ids` belong to the authenticated user
+        2. Assign sequential `sort_order` values: `(index + 1) * 1000`
+           - First task (index 0): sort_order = 1000
+           - Second task (index 1): sort_order = 2000
+           - Third task (index 2): sort_order = 3000
+        3. Update database in transaction (bulk update with WHERE id IN ...)
+        4. Return success with count of updated tasks
+
+        **Edge Cases**:
+        - Empty array: Returns 400 validation error
+        - Invalid task IDs: Returns 400 with list of invalid IDs
+        - User mismatch: Returns 403 if JWT user_id ≠ path user_id
+        - Partial reorder: Only updates tasks in payload (others keep existing sort_order)
+
+        **Performance**: Target <500ms response time (p95)
+
+      operationId: reorderTasks
+      tags:
+        - Tasks
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "550e8400-e29b-41d4-a716-446655440000"
+          description: |
+            User UUID (must match JWT token `user_id` claim).
+            Extracted from Better Auth session token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderRequest'
+            examples:
+              simple_reorder:
+                summary: Reorder 4 tasks
+                value:
+                  task_ids: [42, 15, 89, 3]
+              single_task:
+                summary: Move single task to top
+                value:
+                  task_ids: [7]
+              full_list:
+                summary: Reorder entire task list (10 tasks)
+                value:
+                  task_ids: [5, 12, 7, 23, 1, 18, 9, 14, 3, 22]
+      responses:
+        '200':
+          description: Tasks reordered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReorderSuccessResponse'
+              examples:
+                success:
+                  summary: Successful reorder
+                  value:
+                    message: "Tasks reordered successfully"
+                    updated_count: 4
+        '400':
+          description: |
+            Validation error - Invalid request body or task IDs
+
+            **Common Causes**:
+            - Empty `task_ids` array
+            - Duplicate task IDs in array
+            - Task IDs do not belong to user
+            - Invalid task ID format (non-integer)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+              examples:
+                empty_array:
+                  summary: Empty task_ids array
+                  value:
+                    error: "task_ids array cannot be empty"
+                    code: "VALIDATION_ERROR"
+                    status: 400
+                    request_id: "req_abc123"
+                invalid_ids:
+                  summary: Task IDs not found or not owned by user
+                  value:
+                    error: "Invalid task IDs"
+                    code: "TASK_VALIDATION_ERROR"
+                    invalid_ids: [3, 5, 99]
+                    status: 400
+                    request_id: "req_def456"
+                duplicate_ids:
+                  summary: Duplicate task IDs in array
+                  value:
+                    error: "Duplicate task IDs not allowed"
+                    code: "VALIDATION_ERROR"
+                    status: 400
+                    request_id: "req_ghi789"
+        '401':
+          description: |
+            Unauthorized - Missing or invalid JWT token
+
+            **Common Causes**:
+            - No Authorization header
+            - Malformed Bearer token
+            - Expired JWT token
+            - Invalid JWT signature
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnauthorizedErrorResponse'
+              examples:
+                missing_token:
+                  summary: No Authorization header
+                  value:
+                    error: "Unauthorized"
+                    code: "MISSING_TOKEN"
+                    status: 401
+                    request_id: "req_jkl012"
+                invalid_token:
+                  summary: Invalid JWT signature
+                  value:
+                    error: "Invalid JWT token"
+                    code: "INVALID_TOKEN"
+                    status: 401
+                    request_id: "req_mno345"
+        '403':
+          description: |
+            Forbidden - User ID mismatch
+
+            **Cause**: The `user_id` in the URL path does not match the `user_id`
+            claim in the JWT token. Users can only reorder their own tasks.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenErrorResponse'
+              examples:
+                user_mismatch:
+                  summary: JWT user_id ≠ path user_id
+                  value:
+                    error: "User ID mismatch"
+                    code: "FORBIDDEN"
+                    status: 403
+                    request_id: "req_pqr678"
+        '404':
+          description: |
+            Not Found - One or more task IDs do not exist
+
+            **Note**: This differs from 400 validation error. Returns 404 if task IDs
+            are valid integers but don't exist in the database (vs. 400 if tasks exist
+            but don't belong to user).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+              examples:
+                task_not_found:
+                  summary: Task IDs not found in database
+                  value:
+                    error: "Task not found"
+                    code: "TASK_NOT_FOUND"
+                    missing_ids: [99, 100]
+                    status: 404
+                    request_id: "req_stu901"
+        '500':
+          description: |
+            Internal Server Error - Database transaction failure
+
+            **Common Causes**:
+            - Database connection timeout
+            - Transaction deadlock
+            - Database constraint violation
+            - Unexpected server error
+
+            **Action**: Retry request. If persists, contact support with `request_id`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalErrorResponse'
+              examples:
+                database_error:
+                  summary: Database transaction failed
+                  value:
+                    error: "Failed to reorder tasks"
+                    code: "DATABASE_ERROR"
+                    status: 500
+                    request_id: "req_vwx234"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT token issued by Better Auth.
+
+        **Header Format**: `Authorization: Bearer <token>`
+
+        **Token Claims**:
+        - `user_id`: User UUID (must match path parameter)
+        - `exp`: Expiration timestamp
+        - `iat`: Issued at timestamp
+
+        **Validation**: Backend verifies JWT signature using JWKS from Better Auth.
+
+  schemas:
+    ReorderRequest:
+      type: object
+      required:
+        - task_ids
+      properties:
+        task_ids:
+          type: array
+          items:
+            type: integer
+            format: int32
+            minimum: 1
+          minItems: 1
+          uniqueItems: true
+          description: |
+            Array of task IDs in desired order. Position in array determines sort_order:
+            - task_ids[0] → sort_order = 1000
+            - task_ids[1] → sort_order = 2000
+            - task_ids[n] → sort_order = (n+1) * 1000
+
+            **Constraints**:
+            - Must contain at least 1 task ID
+            - All IDs must be unique (no duplicates)
+            - All IDs must be positive integers
+            - All IDs must belong to authenticated user
+          example: [42, 15, 89, 3]
+
+    ReorderSuccessResponse:
+      type: object
+      required:
+        - message
+        - updated_count
+      properties:
+        message:
+          type: string
+          description: Success message
+          example: "Tasks reordered successfully"
+        updated_count:
+          type: integer
+          format: int32
+          description: Number of tasks updated
+          example: 4
+
+    ValidationErrorResponse:
+      type: object
+      required:
+        - error
+        - code
+        - status
+        - request_id
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+          example: "Invalid task IDs"
+        code:
+          type: string
+          description: Machine-readable error code
+          enum:
+            - VALIDATION_ERROR
+            - TASK_VALIDATION_ERROR
+          example: "TASK_VALIDATION_ERROR"
+        invalid_ids:
+          type: array
+          items:
+            type: integer
+          description: List of task IDs that failed validation (optional)
+          example: [3, 5, 99]
+        status:
+          type: integer
+          format: int32
+          description: HTTP status code
+          example: 400
+        request_id:
+          type: string
+          description: Unique request identifier for debugging
+          example: "req_abc123"
+
+    UnauthorizedErrorResponse:
+      type: object
+      required:
+        - error
+        - code
+        - status
+        - request_id
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+          example: "Unauthorized"
+        code:
+          type: string
+          description: Machine-readable error code
+          enum:
+            - MISSING_TOKEN
+            - INVALID_TOKEN
+            - EXPIRED_TOKEN
+          example: "MISSING_TOKEN"
+        status:
+          type: integer
+          format: int32
+          description: HTTP status code
+          example: 401
+        request_id:
+          type: string
+          description: Unique request identifier for debugging
+          example: "req_jkl012"
+
+    ForbiddenErrorResponse:
+      type: object
+      required:
+        - error
+        - code
+        - status
+        - request_id
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+          example: "User ID mismatch"
+        code:
+          type: string
+          description: Machine-readable error code
+          enum:
+            - FORBIDDEN
+          example: "FORBIDDEN"
+        status:
+          type: integer
+          format: int32
+          description: HTTP status code
+          example: 403
+        request_id:
+          type: string
+          description: Unique request identifier for debugging
+          example: "req_pqr678"
+
+    NotFoundErrorResponse:
+      type: object
+      required:
+        - error
+        - code
+        - status
+        - request_id
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+          example: "Task not found"
+        code:
+          type: string
+          description: Machine-readable error code
+          enum:
+            - TASK_NOT_FOUND
+          example: "TASK_NOT_FOUND"
+        missing_ids:
+          type: array
+          items:
+            type: integer
+          description: List of task IDs that were not found (optional)
+          example: [99, 100]
+        status:
+          type: integer
+          format: int32
+          description: HTTP status code
+          example: 404
+        request_id:
+          type: string
+          description: Unique request identifier for debugging
+          example: "req_stu901"
+
+    InternalErrorResponse:
+      type: object
+      required:
+        - error
+        - code
+        - status
+        - request_id
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+          example: "Failed to reorder tasks"
+        code:
+          type: string
+          description: Machine-readable error code
+          enum:
+            - DATABASE_ERROR
+            - INTERNAL_ERROR
+          example: "DATABASE_ERROR"
+        status:
+          type: integer
+          format: int32
+          description: HTTP status code
+          example: 500
+        request_id:
+          type: string
+          description: Unique request identifier for debugging
+          example: "req_vwx234"
