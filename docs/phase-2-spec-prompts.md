@@ -4,19 +4,20 @@
 **Constitution**: `.specify/memory/constitution.md`
 **Project Constraints**: `CLAUDE.md`
 
-This document contains ready-to-use prompts for all 7 specification cycles required to complete Phase II of the Todo Evolution Hackathon.
+This document contains ready-to-use prompts for all 8 specification cycles required to complete Phase II of the Todo Evolution Hackathon.
 
 ---
 
-## Overview: 7-Spec Breakdown
+## Overview: 8-Spec Breakdown
 
 1. **Project Setup & Auth Foundation** - Monorepo, Better Auth, User model
 2. **Database Setup with User-Scoped Tasks** - SQLModel, Migrations, User isolation
 3. **FastAPI Task CRUD with Authentication** - Protected APIs, JWT validation
 4. **Frontend - Auth & Task Management** - Next.js UI, 5 basic features
-5. **Frontend-Backend Integration Testing** - E2E validation, Multi-user testing
-6. **Deployment to Production** - Vercel + Backend deployment, Neon DB
-7. **UI Polish & Advanced Features** - Styling, animations, accessibility
+5. **Better Auth + FastAPI JWT Integration** - JWKS verification, Frontend-Backend connection
+6. **Frontend-Backend Integration Testing** - E2E validation, Multi-user testing
+7. **Deployment to Production** - Vercel + Backend deployment, Neon DB
+8. **UI Polish & Advanced Features** - Styling, animations, accessibility
 
 ---
 
@@ -124,199 +125,264 @@ Create an implementation plan for Spec 1: Project Setup & Auth Foundation.
 
 ---
 
-## Spec 2: Database Setup with User-Scoped Tasks
+## Spec 2: Complete Database Schema for All Phases
 
-### `/sp.specify` Prompt
+**UPDATED:** This spec now creates a complete schema (4 tables: tasks, tags, task_tags, notifications) to support all phases (II-V) without requiring complex migrations later. Phase II uses only basic fields; advanced fields are nullable and used in Phase V microservices.
+
+### `/sp.specify` Prompt (CONCISE)
 
 ```
-Create a specification for database setup with user-scoped task management.
+Create a complete database schema supporting all project phases (II-V) with user isolation and performance optimization.
 
 **Context:**
-- Building on Spec 1 (User model already exists)
-- All tasks MUST be scoped to specific users (multi-tenancy)
-- Constitutional requirement: user isolation enforced at database level
+- Builds on Spec 1 User model
+- Phase II uses basic fields only; advanced fields nullable for Phase V microservices
+- Multi-tenancy enforced at database level
 
-**User Stories (Priority Order):**
+**Core Requirements:**
+- 4 tables: tasks, tags, task_tags (junction), notifications
+- All tables user-scoped (user_id foreign key, ON DELETE CASCADE)
+- Soft deletes (deleted_at), UTC timestamps, Alembic migrations
+- Priority enum: low/medium/high; recurrence: daily/weekly/monthly/custom
+- Full-text search on task title/description; 8 performance indexes
+- Query performance < 100ms; supports 10,000+ tasks per user
 
-1. **As a developer**, I want a properly structured database schema so tasks are isolated per user
-   - Given the User model exists
-   - When I create the Task model
-   - Then it has a foreign key to User with ON DELETE CASCADE
+**Task Table (13 fields):**
+```
+Basic (Phase II): id, user_id*, title, description, completed, created_at, updated_at, deleted_at
+Intermediate (Phase V): priority (enum, nullable)
+Advanced (Phase V): due_date, reminder_at, recurrence_pattern, recurrence_config (JSONB, all nullable)
+*Foreign key: users.id ON DELETE CASCADE
+```
 
-2. **As a developer**, I want database migrations so schema changes are versioned
-   - Given I modify the schema
-   - When I run migrations
-   - Then changes are applied safely with rollback capability
+**Tag Table (5 fields):**
+```
+id, user_id*, name, color (hex), created_at
+Constraint: UNIQUE(user_id, name)
+*Foreign key: users.id ON DELETE CASCADE
+```
 
-3. **As a developer**, I want seed data so I can test the application
-   - Given an empty database
-   - When I run seed script
-   - Then I have test users with sample tasks
+**TaskTag Junction (3 fields):**
+```
+task_id*, tag_id*, created_at
+Primary Key: (task_id, tag_id)
+*Foreign keys with CASCADE delete
+```
 
-**Requirements:**
-- FR-001: Task model MUST include user_id foreign key
-- FR-002: System MUST use Alembic for migrations
-- FR-003: Database MUST have indexes on user_id, completed, created_at
-- FR-004: Tasks MUST soft delete (deleted_at timestamp, not hard delete)
-- FR-005: All timestamps MUST be stored in UTC
+**Notification Table (11 fields):**
+```
+id, user_id*, task_id*, type (reminder/recurring_created/overdue), channel (email/push/sms),
+recipient, subject, body, sent_at, status (pending/sent/failed), error_message, created_at
+*Foreign keys: users.id, tasks.id (nullable) ON DELETE CASCADE
+```
+
+**Required Indexes:**
+```sql
+idx_tasks_user_id, idx_tasks_user_completed, idx_tasks_user_priority, idx_tasks_user_due_date
+idx_tasks_title_description (GIN full-text), idx_tasks_due_reminders
+idx_tags_user_id, idx_notifications_pending
+```
 
 **Success Criteria:**
-- SC-001: Migrations run successfully on fresh Neon database
-- SC-002: Query performance < 100ms with indexes
-- SC-003: Seed script creates 3 users with 5 tasks each
-- SC-004: Foreign key constraints prevent orphaned tasks
+- Migrations run on fresh Neon DB; all constraints enforced
+- Seed: 3 users, 10 tasks each, 5 tags, task_tags assignments, sample notifications
+- User isolation verified (no cross-user data access)
+- Phase II works with NULL advanced fields; no breaking changes Phase II→V
 
-**Key Entities:**
-- Task: id, user_id, title, description, completed, deleted_at, created_at, updated_at
+**Out of Scope:** Conversation/Message tables (Phase III), email sending logic, recurring task spawning (Phase V services)
 
-**Out of Scope:**
-- Due dates (Phase V feature)
-- Priorities and tags (Phase V feature)
-- Recurring tasks (Phase V feature)
-```
+**SKILLS:** sqlmodel-expert, alembic-migrations, postgresql-performance
 
-### `/sp.plan` Prompt
+
+### `/sp.plan` Prompt (CONCISE)
 
 ```
-Create an implementation plan for Spec 2: Database Setup with User-Scoped Tasks.
+Create implementation plan for complete database schema (4 tables, Phase II-V support).
 
-**Input:** specs/002-database-setup/spec.md
-
-**Technical Context:**
-- Database: Neon Serverless PostgreSQL
-- ORM: SQLModel (combines SQLAlchemy + Pydantic)
-- Migrations: Alembic
-- Connection: asyncpg driver for async operations
-- Testing: pytest with test database
-
-**Architecture Requirements:**
-- User-scoped data with foreign key constraints
-- Soft deletes for all entities
-- Audit fields (created_at, updated_at, created_by, updated_by)
-- Indexes for query performance
-- Connection pooling configuration
-
-**Research Focus:**
-- SQLModel relationship definitions
-- Alembic migration best practices
-- Neon PostgreSQL connection string format
-- Async database session management
-- Seed data patterns for testing
+**Stack:** Neon PostgreSQL, SQLModel ORM, Alembic migrations, asyncpg, pytest
 
 **Deliverables:**
-- Complete Task model with SQLModel
-- Alembic migration files
-- Database schema diagram (ERD)
-- Seed data script
-- Database connection configuration
+
+1. **SQLModel Models** (backend/models.py)
+   - Task: 13 fields (basic + intermediate + advanced), relationships to User/Tag
+   - Tag: 5 fields, UNIQUE(user_id, name) constraint
+   - TaskTag: junction with composite PK (task_id, tag_id)
+   - Notification: 11 fields, status enum validation
+
+2. **Alembic Migration** (001_create_complete_schema.py)
+   - Creates 4 tables with foreign keys (ON DELETE CASCADE)
+   - 8 indexes: user isolation, composite (user+completed/priority/due), GIN full-text, partial
+   - Check constraints: priority enum, notification status
+   - Downgrade: drop tables in reverse order
+
+3. **Seed Script** (seed_database.py)
+   - Factory pattern: UserFactory, TaskFactory, TagFactory, NotificationFactory
+   - Creates: 3 users, 10 tasks/user (mixed basic/advanced), 5 tags/user, task-tag assignments, sample notifications
+   - Idempotent (safe to rerun)
+
+4. **Database Config** (db.py)
+   - Async engine with connection pool (min 5, max 20)
+   - Session factory for FastAPI dependency injection
+   - Health check endpoint
+
+5. **Tests** (test_db.py)
+   - User isolation (no cross-user access)
+   - Cascade deletes (user → tasks/tags)
+   - Many-to-many (task-tags)
+   - Query performance (< 100ms with EXPLAIN ANALYZE)
+
+**Research:**
+- SQLModel many-to-many relationships
+- PostgreSQL GIN full-text search
+- JSONB for recurrence_config
+- Async session management patterns
+
+**Validation:**
+- All 4 tables + 8 indexes created
+- Seed creates 30 tasks, 15 tags, task_tags, notifications
+- Phase II queries work (NULL advanced fields ignored)
+- Migration < 10s, seed < 5s
+
+**SKILLS:** sqlmodel-expert, alembic-migrations, postgresql-performance
 ```
 
 ---
 
-## Spec 3: FastAPI Task CRUD with Authentication
+## Spec 3: Complete FastAPI Task & Tag Management API (All Features)
 
-### `/sp.specify` Prompt
+**UPDATED for Option A**: Build complete feature set (Basic + Intermediate + Advanced) in Phase II monolith.
+
+### `/sp.specify` Prompt (Concise)
 
 ```
-Create a specification for authenticated Task CRUD API endpoints.
+Create a specification for complete authenticated Task and Tag Management API with all Basic, Intermediate, and Advanced features.
 
 **Context:**
-- Building on Spec 1 (auth) and Spec 2 (database)
-- All endpoints MUST require JWT authentication
-- Users can ONLY access their own tasks (enforced at API level)
-- Phase II requirement: RESTful endpoints at /api/v1/{user_id}/tasks
+- Builds on Spec 1 (auth) and Spec 2 (complete database: tasks, tags, task_tags, notifications)
+- All endpoints require JWT authentication with user isolation
+- RESTful API at /api/v1/{user_id}/tasks and /api/v1/{user_id}/tags
+- Complete Phase II feature implementation in single monolithic API
 
-**User Stories (Priority Order):**
+**Feature Scope:**
 
-1. **As a logged-in user**, I want to create tasks so I can track my work
-   - Given I'm authenticated with JWT
-   - When I POST to /api/v1/{user_id}/tasks with title and description
-   - Then a new task is created and returned
+**Basic Level (5 features):**
+1. Create tasks with full details (title, description, priority, due_date, reminder_at, recurrence)
+2. View task list with all details and tags
+3. Update any task field (partial updates)
+4. Mark tasks complete/incomplete
+5. Delete tasks (soft delete)
 
-2. **As a logged-in user**, I want to view my task list so I can see what needs doing
-   - Given I'm authenticated
-   - When I GET /api/v1/{user_id}/tasks
-   - Then I see only MY tasks, not other users' tasks
+**Intermediate Level (4 features):**
+6. Create/manage tags (name, color)
+7. Assign/remove tags from tasks (many-to-many)
+8. Filter tasks by priority, status, tag, due dates
+9. Search tasks (full-text on title/description) and sort (created_at, due_date, priority, title)
 
-3. **As a logged-in user**, I want to update tasks so I can modify details
-   - Given I own a task
-   - When I PUT /api/v1/{user_id}/tasks/{task_id}
-   - Then the task is updated with new data
+**Advanced Level (2 features):**
+10. Set due dates and reminders (ISO 8601 timestamps)
+11. Create recurring tasks (pattern: daily/weekly/monthly/custom, JSONB config)
 
-4. **As a logged-in user**, I want to mark tasks complete so I can track progress
-   - Given I own a task
-   - When I PATCH /api/v1/{user_id}/tasks/{task_id}/complete
-   - Then completed field is toggled
+**API Endpoints (14 unique):**
+- Tasks: POST, GET, GET/{id}, PUT/{id}, DELETE/{id}, PATCH/{id}/complete
+- Tags: POST, GET, GET/{id}, PUT/{id}, DELETE/{id}
+- Task-Tags: POST /tasks/{id}/tags, DELETE /tasks/{id}/tags/{tag_id}, GET /tasks/{id}/tags
+- Notification: send notification on user email
 
-5. **As a logged-in user**, I want to delete tasks so I can remove unwanted items
-   - Given I own a task
-   - When I DELETE /api/v1/{user_id}/tasks/{task_id}
-   - Then the task is soft-deleted
+**Query Parameters (GET /tasks):**
+- Filters: status, priority, tag, due_before, due_after
+- Search: search (full-text)
+- Sort: sort (field), order (asc/desc)
 
-**Requirements:**
-- FR-001: All endpoints MUST validate JWT token
-- FR-002: User ID in URL MUST match user_id from JWT token
-- FR-003: API MUST return 401 Unauthorized for invalid/missing tokens
-- FR-004: API MUST return 403 Forbidden if user_id mismatch
-- FR-005: API MUST return 404 Not Found for non-existent tasks
-- FR-006: System MUST generate OpenAPI documentation
-- FR-007: Response format MUST be consistent JSON
+**Critical Requirements:**
+- FR-001: JWT validation on all endpoints, user_id match required
+- FR-002: Priority enum: low|medium|high; Recurrence: daily|weekly|monthly|custom
+- FR-003: Tag names unique per user, color hex format (#RRGGBB)
+- FR-004: Soft deletes (deleted_at), excluded from all queries
+- FR-005: Task responses include nested tag details
+- FR-006: Full-text search uses PostgreSQL GIN index (already in schema)
+- FR-007: OpenAPI docs at /docs with all endpoints
 
 **Success Criteria:**
-- SC-001: API response time p95 < 500ms
-- SC-002: Users cannot access other users' tasks (verified by tests)
-- SC-003: OpenAPI docs accessible at /docs
-- SC-004: All error responses follow standard format
-
-**Edge Cases:**
-- Empty task list returns []
-- Invalid task_id returns 404
-- Cross-user access attempts return 403
-- Missing JWT returns 401
-- Expired JWT returns 401
+- API p95 < 500ms with filters
+- Multi-user isolation verified
+- Search < 200ms using GIN index
+- All filters combinable (AND logic)
 
 **Out of Scope:**
-- Search and filtering (Phase V)
-- Sorting (Phase V)
-- Pagination (can add if needed)
+- Recurring task spawning (Phase V microservice)
+- Real-time WebSocket (Phase V)
+- Task sharing, attachments, comments
+
+**SKILLS:** fastapi-expert, sqlmodel-expert, configuring-better-auth
 ```
 
-### `/sp.plan` Prompt
+### `/sp.plan` Prompt (Concise)
 
 ```
-Create an implementation plan for Spec 3: FastAPI Task CRUD with Authentication.
+Create implementation plan for Spec 3: Complete FastAPI Task & Tag Management API.
 
-**Input:** specs/003-fastapi-task-crud/spec.md
+**Input:** specs/003-fastapi-complete-api/spec.md
 
-**Technical Context:**
-- Framework: FastAPI with async endpoints
-- Auth: JWT validation on all protected routes
-- Database: Async SQLModel queries
-- Testing: pytest with test client
-- Docs: Auto-generated OpenAPI/Swagger
+**Stack:**
+- FastAPI (async), SQLModel (async), Pydantic (DTOs), pytest (testing)
+- Auth: JWT validation dependencies
+- Database: Existing schema (tasks, tags, task_tags, notifications) with GIN index
+- Docs: Auto-generated OpenAPI
 
-**Architecture Requirements:**
-- RESTful API design (GET, POST, PUT, PATCH, DELETE)
-- Versioned endpoints (/api/v1/...)
-- JWT middleware for authentication
-- User isolation enforcement (user_id validation)
-- Consistent error response format
-- Request/response validation with Pydantic
+**Architecture:**
+- 14 RESTful endpoints (/api/v1/{user_id}/...)
+- JWT middleware: get_current_user, verify_user_match
+- Repository pattern: TaskRepo, TagRepo, TaskTagRepo
+- Eager loading: joinedload for task-tags relationships
+- Query service: dynamic filtering, full-text search, sorting
+- Soft delete filtering: deleted_at IS NULL on all queries
+- Error handling: 401/403/404/400/500 with consistent JSON format
+- Request ID tracking per request
 
-**Research Focus:**
-- FastAPI dependency injection for JWT validation
-- Async database queries with SQLModel
-- Error handling middleware
-- CORS configuration for frontend
-- OpenAPI customization
+**Component Breakdown:**
+1. **Auth Layer**: JWT dependencies, user_id validation
+2. **Pydantic Models**: TaskCreate, TaskUpdate, TaskResponse (with nested tags), TagCreate, TagUpdate, TagResponse, ErrorResponse
+3. **Repositories**: CRUD with soft delete, unique validation, bulk operations
+4. **Query Service**: Build dynamic filters from query params, PostgreSQL full-text search
+5. **Endpoints**: 6 task, 5 tag, 3 task-tag endpoints
+6. **Testing**: Multi-user isolation, edge cases, performance (50+ tests)
+
+**Key Patterns:**
+- Async sessions with connection pooling (min 5, max 20)
+- Transactions for multi-table operations (tag assignment)
+- Eager loading to avoid N+1 queries
+- Partial updates (only provided fields change)
+- Bulk tag assignment with duplicate checks
+
+**API Response Example:**
+```json
+{
+  "id": 1,
+  "title": "Buy groceries",
+  "completed": false,
+  "priority": "high",
+  "due_date": "2025-12-30T10:00:00Z",
+  "tags": [{"id": 1, "name": "work", "color": "#FF5733"}],
+  "created_at": "2025-12-20T14:30:00Z"
+}
+```
+
+**Performance Targets:**
+- Task list with filters: < 200ms (p95)
+- Full-text search: < 150ms using GIN index
+- Task creation: < 100ms
 
 **Deliverables:**
-- API endpoint implementations (5 endpoints)
-- JWT validation dependency
-- Error response models
-- API contract tests
-- OpenAPI specification
-```
+- 14 async API endpoints
+- 7 Pydantic models
+- 3 repository classes
+- Query service (filtering/search/sort)
+- JWT auth dependencies
+- Error handling middleware
+- Comprehensive test suite
+- OpenAPI documentation
+
+**SKILLS:** fastapi-expert, sqlmodel-expert, configuring-better-auth
 
 ---
 
@@ -325,128 +391,537 @@ Create an implementation plan for Spec 3: FastAPI Task CRUD with Authentication.
 ### `/sp.specify` Prompt
 
 ```
-Create a specification for the Next.js frontend with authentication and task management.
+Create specification for sophisticated modern frontend design (UI/UX only, no API integration).
 
 **Context:**
-- Building on Spec 3 (backend APIs ready)
-- Next.js 16+ with App Router (NOT Pages Router)
-- All 5 Phase II basic features required
-- Responsive design for mobile and desktop
-
-**User Stories (Priority Order):**
-
-1. **As a new user**, I want to register from the UI so I can create an account
-   - Given I'm on the registration page
-   - When I submit the form
-   - Then I'm logged in and redirected to task list
-
-2. **As a user**, I want to log in from the UI so I can access my tasks
-   - Given I'm on the login page
-   - When I submit valid credentials
-   - Then I'm redirected to my task list
-
-3. **As a logged-in user**, I want to see my task list so I know what to do
-   - Given I'm authenticated
-   - When I visit the home page
-   - Then I see all my tasks (not other users' tasks)
-
-4. **As a logged-in user**, I want to add new tasks so I can track work
-   - Given I'm on the task list
-   - When I click "Add Task" and enter title/description
-   - Then the task appears in my list immediately
-
-5. **As a logged-in user**, I want to mark tasks complete so I can track progress
-   - Given I have a task
-   - When I click the checkbox
-   - Then the task is marked complete with visual feedback
-
-6. **As a logged-in user**, I want to edit tasks so I can update details
-   - Given I have a task
-   - When I click edit and modify title/description
-   - Then the task updates in my list
-
-7. **As a logged-in user**, I want to delete tasks so I can remove items
-   - Given I have a task
-   - When I click delete and confirm
-   - Then the task is removed from my list
-
-8. **As a logged-in user**, I want to log out so I can secure my account
-   - Given I'm logged in
-   - When I click logout
-   - Then I'm redirected to login and cannot access tasks
+- Backend complete: 14 REST endpoints (tasks, tags, filters, search, sort) with JWT auth
+- Basic Next.js 16+ + Better Auth exists
+- This spec: Design only with mock data
+- Next spec: API integration
 
 **Requirements:**
-- FR-001: System MUST use Next.js 16+ App Router
-- FR-002: System MUST store JWT token securely (httpOnly cookie preferred)
-- FR-003: Protected routes MUST redirect to login if not authenticated
-- FR-004: UI MUST show loading states during API calls
-- FR-005: UI MUST show error messages for failed operations
-- FR-006: UI MUST be responsive (mobile and desktop)
-- FR-007: Task list MUST update optimistically for better UX
+
+**1. Public Home Page**
+- Hero with value proposition, feature showcase, CTAs (Sign Up/Login)
+- Modern design, smooth animations, responsive
+- Professional typography and color scheme
+
+**2. Auth Pages (Enhance Existing)**
+- Beautiful login/register forms with validation
+- Loading states, error messages, password strength indicator
+
+**3. Dashboard (Main Focus)**
+
+**Layout:**
+- Sidebar/top nav, user profile dropdown, task statistics, quick actions
+
+**Task Interface:**
+- Task cards with: priority badges (low/med/high), tag pills (colored), due date indicators, completion checkboxes
+- Create/Edit modal: title, description, priority, due date, reminder, recurrence, tags, validation
+- Filter panel: status, priority, tags, date range, full-text search, clear all
+- Sort controls: created_at, due_date, priority, title (asc/desc)
+- Empty states, drag-and-drop visual (no logic)
+
+**Tag Management:**
+- Create/edit/delete tags with color picker
+- Tag list with usage count
+
+**Interactions:**
+- Toast notifications, loading skeletons, confirmation dialogs
+- Optimistic UI feedback
+
+**Design System:**
+- Stack: Next.js 16+ App Router, TypeScript, Tailwind CSS, shadcn/ui
+- Animations: Framer Motion
+- Forms: React Hook Form + Zod
+- Icons: Lucide React
+- Date/Time: React Day Picker
+- Colors: Modern palette (indigo/purple primary)
+- Typography: Inter or similar
+
+**Accessibility:**
+- WCAG 2.1 AA, keyboard nav, ARIA labels, focus indicators, color contrast
+
+**Responsive:**
+- Mobile (375px+): stacked, hamburger menu
+- Tablet (768px+): adaptive
+- Desktop (1024px+): full sidebar
 
 **Success Criteria:**
-- SC-001: Login to task list flow < 2 seconds
-- SC-002: Task actions feel instant (optimistic updates)
-- SC-003: UI works on mobile (375px width minimum)
-- SC-004: No cross-user data leakage (verified by multi-user testing)
-- SC-005: Accessibility: keyboard navigation works
-
-**Edge Cases:**
-- Empty task list shows helpful message
-- Network errors show retry option
-- Expired JWT redirects to login
-- Long task titles/descriptions truncate gracefully
+- Impressive first impression (demo video)
+- Professional polish, 60fps animations
+- Intuitive UX, passes WAVE accessibility
+- All features visually represented (mock data)
 
 **Out of Scope:**
-- Dark mode (can add in Spec 7 polish)
-- Keyboard shortcuts (Spec 7)
-- Advanced filtering (Phase V)
+- API integration, real auth flows, data persistence, backend errors
+
+**SKILLS:**  
+- @.claude/skills/custom/frontend-design-system
+- @.claude/skills/mjs/building-nextjs-apps
+- @.claude/skills/panaversity/theme-factory
 ```
 
 ### `/sp.plan` Prompt
 
 ```
-Create an implementation plan for Spec 4: Frontend - Auth & Task Management.
+Create plan for modern frontend design (UI only, no integration).
 
-**Input:** specs/004-frontend-auth-tasks/spec.md
+**Input:** specs/004-frontend-design/spec.md
 
-**Technical Context:**
-- Framework: Next.js 16+ with App Router
-- Language: TypeScript
-- Styling: Tailwind CSS (utility-first)
-- State: React hooks (useState, useEffect, useContext)
-- API Client: fetch with custom wrapper
-- Testing: Jest + React Testing Library
+**Stack:**
+- Next.js 16+ App Router, TypeScript, Tailwind, shadcn/ui, Framer Motion
+- React Hook Form + Zod, React Day Picker, Lucide icons
 
-**Architecture Requirements:**
-- App Router structure (/app directory)
-- Server Components where possible
-- Client Components for interactivity
-- Protected route middleware
-- Centralized API client
-- Optimistic UI updates
-- Error boundary components
+**Structure:**
+```
+src/
+├── app/
+│   ├── page.tsx              # Home (redesign)
+│   ├── auth/login/page.tsx   # Enhance
+│   ├── auth/register/page.tsx
+│   └── dashboard/
+│       ├── layout.tsx        # Nav layout
+│       ├── page.tsx          # Tasks
+│       └── tags/page.tsx
+├── components/
+│   ├── home/
+│   │   ├── Hero.tsx
+│   │   └── Features.tsx
+│   ├── dashboard/
+│   │   ├── Sidebar.tsx
+│   │   ├── TaskList.tsx
+│   │   ├── TaskCard.tsx
+│   │   ├── TaskModal.tsx     # Create/edit with all fields
+│   │   ├── FilterPanel.tsx   # All filters
+│   │   ├── SortControls.tsx
+│   │   └── TagManager.tsx
+│   └── ui/                   # shadcn components
+│       ├── Modal.tsx
+│       ├── Badge.tsx
+│       ├── DatePicker.tsx
+│       ├── TagPicker.tsx
+│       ├── ColorPicker.tsx
+│       ├── Toast.tsx
+│       └── Skeleton.tsx
+├── lib/
+│   ├── mock-data.ts          # Sample tasks/tags
+│   └── design-tokens.ts      # Colors, spacing
+```
 
-**Research Focus:**
-- Next.js 16+ App Router authentication patterns
-- JWT token storage (httpOnly cookies vs localStorage)
-- Server vs Client Components in App Router
-- Optimistic updates with React
-- Tailwind CSS component patterns
-- Form validation (react-hook-form or native)
+**Implementation Phases:**
+1. **Foundation:** Tailwind config, design tokens, base UI components
+2. **Home Page:** Hero, features, animations
+3. **Auth Enhancement:** Form styling, validation feedback
+4. **Dashboard Layout:** Sidebar, top bar, responsive grid
+5. **Task UI:** Cards, modal with all fields, date/tag pickers
+6. **Filters/Sort:** Panel, search, controls
+7. **Polish:** Framer Motion transitions, toasts, skeletons, accessibility
+
+**Design Tokens:**
+```typescript
+colors: {
+  priority: { low: '#10B981', medium: '#F59E0B', high: '#EF4444' },
+  status: { complete: '#10B981', incomplete: '#6B7280', overdue: '#EF4444' }
+}
+```
+
+**Mock Data:**
+- 10-15 tasks (varied priorities, dates, tags, states)
+- Sample tags with colors
+- Edge cases (long titles, overdue, many tags)
+
+**Animations:**
+- Page transitions: fade + slide (200ms)
+- Modal: scale + fade (150ms)
+- Hover: subtle lift
+- Toasts: slide from top-right
+
+**Responsive:**
+- Mobile: stacked, hamburger
+- Tablet: adaptive sidebar
+- Desktop: full layout
 
 **Deliverables:**
-- Authentication pages (login, register)
-- Task list page with all CRUD operations
-- Protected route middleware
-- API client with JWT handling
-- Component library (TaskItem, TaskForm, etc.)
-- Responsive layout
-```
+1. Home page, enhanced auth pages
+2. Dashboard with nav
+3. Task list + modal (all fields)
+4. Filter/sort UI
+5. Tag management
+6. Design system components
+7. Mock data
+8. Responsive layouts
+
+**Validation:**
+- Mock data displays correctly
+- 60fps animations
+- Responsive at all breakpoints
+- Passes WAVE accessibility
+- No console errors
+
+**SKILLS:**
+- @.claude/skills/custom/frontend-design-system
+- @.claude/skills/mjs/building-nextjs-apps
+- @.claude/skills/panaversity/theme-factory
 
 ---
 
-## Spec 5: Frontend-Backend Integration Testing
+## Spec 5: Better Auth + FastAPI JWT Integration
+
+### `/sp.specify` Prompt (Concise)
+
+```
+Create specification for Better Auth + FastAPI JWT Integration to connect frontend with backend APIs.
+
+**Context:**
+- Builds on Spec 1-4 (auth foundation, database, API endpoints, frontend UI with mock data)
+- Backend has complete REST API (14 endpoints) with custom JWT auth
+- Frontend has complete UI with mock data in React contexts
+- This spec: Replace custom JWT with Better Auth JWKS verification, connect frontend to backend
+
+**User Stories (Priority Order):**
+
+1. **As a new user**, I want to register via Better Auth so I can access the todo app
+   - Given I'm on the registration page
+   - When I provide email, password, and name
+   - Then Better Auth creates my account and issues a JWT token
+   - And I can access protected backend endpoints with this token
+
+2. **As a registered user**, I want to log in and access my tasks
+   - Given I have an account
+   - When I log in with Better Auth
+   - Then I receive a JWT token
+   - And the frontend includes it in all API requests
+   - And the backend validates it via JWKS
+
+3. **As an authenticated user**, I want to manage tasks via the UI
+   - Given I'm logged in
+   - When I create/update/delete tasks in the frontend
+   - Then the frontend calls backend APIs with Authorization header
+   - And my tasks persist to the database
+   - And all filters/search/sort work with real data
+
+4. **As the system**, I want to validate JWT tokens securely
+   - Given a request with JWT token
+   - When the backend receives it
+   - Then it fetches Better Auth JWKS (with caching)
+   - And validates the EdDSA/Ed25519 signature
+   - And extracts user_id for authorization
+
+5. **As the system**, I want to enforce user isolation
+   - Given two users with valid JWT tokens
+   - When User A tries to access User B's tasks
+   - Then the backend returns 403 Forbidden
+   - And user_id from JWT is validated against URL path
+
+**Requirements:**
+
+**Backend Changes:**
+- FR-001: Backend MUST replace custom JWT validation in `/backend/src/api/deps.py` with Better Auth JWKS verification using EdDSA/Ed25519
+- FR-002: Backend MUST fetch and cache Better Auth JWKS from `BETTER_AUTH_JWKS_URL` environment variable with 1-hour TTL
+- FR-003: Backend MUST maintain existing `verify_user_match()` dependency for user isolation (JWT user_id matches URL {user_id})
+- FR-004: Backend MUST preserve all 14 existing endpoint signatures (no breaking changes)
+- FR-005: JWKS fetch failures MUST retry 3 times with exponential backoff before returning 503
+
+**Frontend Changes:**
+- FR-006: Frontend MUST configure Better Auth client with JWT plugin and EdDSA algorithm
+- FR-007: Frontend MUST implement login/register flows using Better Auth SDK
+- FR-008: Frontend MUST create API client module (`lib/api-client.ts`) that includes `Authorization: Bearer <token>` header on all requests
+- FR-009: Frontend MUST replace all mock data in TaskContext and TagContext with real API calls to backend endpoints
+- FR-010: Frontend MUST map filter operations to backend query parameters (status, priority, tags, date range, search, sort)
+- FR-011: Frontend MUST handle API errors gracefully (401→login redirect, 403/404/422/500→toast notifications)
+
+**Integration:**
+- FR-012: Integration MUST preserve all existing features (filtering, sorting, search, tag management, task CRUD, priorities, due dates, reminders, recurrence)
+- FR-013: Frontend-backend communication MUST use CORS with frontend domain allowlist
+
+**Success Criteria:**
+- SC-001: User can register via Better Auth, receive JWT, and access dashboard
+- SC-002: Authenticated user can perform full task CRUD via frontend with data persisted to database
+- SC-003: JWT validation completes in <50ms per request (JWKS cache hit)
+- SC-004: Frontend handles 401 errors by redirecting to login page
+- SC-005: All filters/search/sort work correctly with real backend data
+- SC-006: User isolation verified (cross-user access blocked with 403)
+- SC-007: JWKS cache reduces backend load (>95% cache hit rate after warmup)
+
+**Key Entities:**
+- Better Auth JWT Token: Claims (user_id, email, exp, iat), EdDSA/Ed25519 signature
+- JWKS: JSON Web Key Set with public keys for JWT verification, 1-hour cache TTL
+- API Client: TypeScript module for authenticated HTTP requests with error handling
+
+**Frontend-to-Backend Endpoint Mapping:**
+```
+Tasks:
+  useTasks().createTask() → POST /api/v1/{user_id}/tasks
+  useTasks().tasks → GET /api/v1/{user_id}/tasks?status&priority&tag&search&sort_by&order
+  useTasks().updateTask() → PATCH /api/v1/{user_id}/tasks/{id}
+  useTasks().completeTask() → PATCH /api/v1/{user_id}/tasks/{id}/complete
+  useTasks().deleteTask() → DELETE /api/v1/{user_id}/tasks/{id}
+
+Tags:
+  useTags().createTag() → POST /api/v1/{user_id}/tags
+  useTags().tags → GET /api/v1/{user_id}/tags
+  useTags().updateTag() → PUT /api/v1/{user_id}/tags/{id}
+  useTags().deleteTag() → DELETE /api/v1/{user_id}/tags/{id}
+
+Filters (transform to query params):
+  status: "active"→"?status=incomplete", "completed"→"?status=complete", "all"→omit
+  priority: "low|medium|high"→"?priority=...", "all"→omit
+  selectedTags: ["Work","Personal"]→"?tag=Work&tag=Personal"
+  searchQuery→"?search=...", sortBy→"?sort_by=...", sortOrder→"?order=..."
+```
+
+**Edge Cases:**
+- Expired JWT tokens (backend returns 401, frontend redirects to login)
+- Invalid JWT signatures (JWKS verification fails, 401 response)
+- User_id mismatch (JWT user_id ≠ URL {user_id}, 403 response)
+- JWKS endpoint unreachable (retry with backoff, fallback to 503)
+- Network errors (timeout, connection refused - show retry toast)
+- Concurrent tab sessions (shared Better Auth session state)
+- CORS preflight failures (misconfigured allowlist)
+
+**Testing Strategy:**
+1. **Unit Tests:** JWKS fetch/cache logic, JWT verification (valid/invalid/expired), API client header construction
+2. **Integration Tests:** Login flow (Better Auth→JWT→API access), task CRUD with database, user isolation, token expiration handling
+3. **Security Tests:** JWT signature tampering, user_id mismatch returns 403, missing Authorization header returns 401, CORS policy enforcement
+4. **Performance Tests:** JWT validation latency (<50ms), JWKS cache hit rate (>95%), API response times with auth overhead
+
+**Coverage Target:** 80%+ authentication modules, 70%+ overall
+
+**SKILLS:**
+- @.claude/skills/panaversity/betterauth-fastapi-jwt-bridge (PRIMARY - JWKS verification approach)
+- @.claude/skills/custom/fastapi-expert (async patterns, dependency injection, middleware)
+- @.claude/skills/custom/sqlmodel-expert (database queries, user_id filtering)
+- @.claude/skills/custom/frontend-design-system (API client patterns, error handling)
+
+**Assumptions:**
+- Better Auth JWKS endpoint is accessible at runtime (https://<domain>/.well-known/jwks.json)
+- Frontend and backend share same user_id format (UUID or integer)
+- Database schema from Spec 2 is deployed and functional
+- Existing backend endpoints from Spec 3 are operational
+- Better Auth uses EdDSA/Ed25519 for JWT signing (per skill documentation)
+
+**Dependencies:**
+- Spec 1: Auth foundation (User model, basic auth setup)
+- Spec 2: Database schema (tasks, tags, task_tags tables)
+- Spec 3: REST API endpoints (14 endpoints fully implemented)
+- Spec 4: Frontend UI (components, contexts with mock data)
+- Better Auth library (frontend: `better-auth`, backend: `python-jose[cryptography]` or `pyjwt`)
+
+**Out of Scope:**
+- Token refresh mechanism (Phase III enhancement)
+- OAuth providers (Google, GitHub - Phase III)
+- Multi-factor authentication (Phase V security)
+- Session management beyond JWT tokens
+- Password reset flow (Phase III)
+- Real-time WebSocket notifications (Phase V)
+
+**Non-Functional Requirements:**
+- **Performance:** JWT validation <50ms, API requests <500ms p95
+- **Security:** HTTPS required, tokens expire in 24 hours, JWKS cache with 1-hour TTL
+- **Reliability:** JWKS fetch retry (3 attempts, exponential backoff), graceful degradation on cache failures
+```
+
+### `/sp.plan` Prompt (Concise)
+
+```
+Create implementation plan for Better Auth + FastAPI JWT Integration.
+
+**Input:** specs/005-betterauth-integration/spec.md
+
+**Stack:**
+- Backend: FastAPI, python-jose[cryptography] or pyjwt, httpx (JWKS fetch), asyncio
+- Frontend: Next.js 16+, Better Auth SDK, TypeScript, React Query (optional)
+- Auth: Better Auth JWKS verification (EdDSA/Ed25519)
+- Testing: pytest, pytest-asyncio, Vitest, React Testing Library, MSW
+
+**Architecture:**
+
+**Backend Changes:**
+1. **JWKS Service** (`/backend/src/services/jwks.py`):
+   - Async JWKS fetcher with httpx
+   - In-memory cache with 1-hour TTL (asyncio.Lock)
+   - Retry logic (3 attempts, exponential backoff)
+   - EdDSA/Ed25519 JWT verification
+
+2. **Auth Dependencies** (`/backend/src/api/deps.py`):
+   - Replace `decode_access_token()` with `verify_better_auth_jwt()`
+   - Update `get_current_user()` to use JWKS verification
+   - Keep `verify_user_match()` unchanged
+   - Extract user_id from JWT claims
+
+3. **Configuration**:
+   - Add `BETTER_AUTH_JWKS_URL`, `BETTER_AUTH_ISSUER` to settings
+   - Update `.env.example`
+
+4. **No Changes**: API endpoints (already protected by dependencies)
+
+**Frontend Changes:**
+1. **Better Auth Config** (`/frontend/src/lib/auth.ts`):
+   - Initialize Better Auth with JWT plugin
+   - Configure EdDSA algorithm
+   - Set backend API base URL
+
+2. **API Client** (`/frontend/src/lib/api-client.ts`):
+   - Base HTTP client (fetch or axios)
+   - Auto-inject Authorization header (from Better Auth session)
+   - Error handling (401→redirect, retry logic)
+   - Type definitions for requests/responses
+
+3. **Context Updates**:
+   - TaskContext: Replace mock with API calls, transform filters to query params
+   - TagContext: Replace mock with API calls
+   - FilterContext: Map to server-side filtering
+
+4. **Auth Flow** (`/frontend/src/app/auth/`):
+   - Login/Register: Use Better Auth SDK
+   - Token handling on success
+   - Redirect to dashboard
+
+**Implementation Phases:**
+
+**Phase A: Backend JWKS (P0)**
+1. JWKS service with fetch/cache/verify
+2. Update auth dependencies
+3. Unit tests (mock JWKS, valid/invalid/expired tokens)
+4. Integration tests (real JWT verification)
+
+**Phase B: Frontend API Client (P0)**
+1. Better Auth client configuration
+2. API client with auth header injection
+3. Error handling middleware
+4. Unit tests (headers, error transforms)
+
+**Phase C: Data Integration (P0)**
+1. Update TaskContext with API calls
+2. Update TagContext with API calls
+3. Transform filter state to query params
+4. Add loading/error states
+5. Integration tests (mock API responses)
+
+**Phase D: E2E Testing (P1)**
+1. Login flow (Better Auth→JWT→API)
+2. Task CRUD with database
+3. User isolation (two users)
+4. Token expiration handling
+5. Error scenarios
+
+**Research Focus:**
+- Better Auth JWT plugin configuration (EdDSA, JWKS endpoint)
+- JWKS verification libraries (python-jose vs pyjwt)
+- JWKS caching strategies (lru_cache vs Redis)
+- Frontend token refresh patterns
+- Error handling UX (toast notifications, retry)
+- CORS configuration
+
+**Component Breakdown:**
+
+**Backend Files:**
+```
+backend/src/
+├── services/
+│   ├── jwks.py                 # NEW: JWKS fetch/cache
+│   └── jwt_verification.py     # NEW: JWT verify (from @betterauth-fastapi-jwt-bridge)
+├── api/deps.py                 # UPDATE: Replace JWT logic
+├── core/
+│   ├── config.py               # UPDATE: Add JWKS env vars
+│   └── security.py             # KEEP: Password hashing (no changes)
+└── tests/
+    ├── unit/
+    │   ├── test_jwks.py        # NEW: JWKS tests
+    │   └── test_jwt_verify.py  # NEW: JWT verification tests
+    ├── integration/
+    │   └── test_auth_flow.py   # NEW: E2E auth tests
+    └── fixtures/jwks_mock.json # NEW: Mock JWKS
+```
+
+**Frontend Files:**
+```
+frontend/src/
+├── lib/
+│   ├── auth.ts              # NEW: Better Auth config
+│   ├── api-client.ts        # NEW: HTTP client with auth
+│   └── api/
+│       ├── tasks.ts         # NEW: Task API functions
+│       └── tags.ts          # NEW: Tag API functions
+├── contexts/
+│   ├── TaskContext.tsx      # UPDATE: Replace mock
+│   └── TagContext.tsx       # UPDATE: Replace mock
+├── app/auth/
+│   ├── login/page.tsx       # UPDATE: Better Auth flow
+│   └── register/page.tsx    # UPDATE: Better Auth flow
+└── __tests__/
+    └── integration/
+        └── auth-flow.test.ts # NEW: E2E test
+```
+
+**Key Patterns:**
+- JWKS caching: lru_cache or time-based cache with 1-hour TTL
+- JWT verification: EdDSA signature validation, claims extraction
+- Error handling: Retry with exponential backoff, fallback to 503
+- API client: Interceptor pattern for auth header injection
+- Filter transform: Frontend state → backend query params
+
+**Performance Targets:**
+- JWKS fetch (cache miss): <100ms
+- JWKS fetch (cache hit): <1ms
+- JWT verification: <50ms per request
+- API calls with auth: <500ms p95
+- JWKS cache hit rate: >95%
+
+**Security Checklist (from @betterauth-fastapi-jwt-bridge):**
+- [ ] JWT signature verification (EdDSA/Ed25519)
+- [ ] Token expiration checked (exp claim)
+- [ ] Issuer validation (iss claim)
+- [ ] JWKS fetched over HTTPS only
+- [ ] JWKS cache with TTL (1 hour max)
+- [ ] Retry logic for JWKS failures
+- [ ] CORS configured (frontend domain only)
+- [ ] Secrets in environment variables
+
+**Testing Strategy:**
+- Unit (60%): JWKS fetch, JWT decode, token validation, API client
+- Integration (30%): Login flow, API calls, database queries
+- E2E (10%): Full user journey (register→login→create task→logout)
+- Coverage target: ≥80% overall, ≥90% auth modules
+
+**Deliverables:**
+1. JWKS verification module with caching
+2. Updated backend auth dependencies
+3. Better Auth client configuration
+4. API client module with error handling
+5. Updated TaskContext and TagContext with API calls
+6. Comprehensive test suite (unit + integration + E2E)
+7. Performance validation (JWT <50ms, cache >95%)
+8. Documentation (quickstart.md, environment variables)
+
+**Migration Strategy:**
+- Backend deploys first (supports both custom JWT and Better Auth)
+- Frontend deploys second (switches to Better Auth)
+- Backward compatibility for 1 release cycle
+- Monitor error rates and rollback if needed
+
+**Acceptance Criteria:**
+- [ ] User can register/login via Better Auth
+- [ ] JWT validation via JWKS (<50ms)
+- [ ] All CRUD operations work with authentication
+- [ ] User isolation enforced (403 on cross-user access)
+- [ ] Error handling tested (401, 403, network)
+- [ ] JWKS cache hit rate >95%
+- [ ] Test coverage ≥80%
+- [ ] Security checklist 100% complete
+
+**SKILLS:**
+- @.claude/skills/panaversity/betterauth-fastapi-jwt-bridge (PRIMARY - JWKS approach, security checklist)
+- @.claude/skills/custom/fastapi-expert (async patterns, dependency injection)
+- @.claude/skills/custom/sqlmodel-expert (database queries, user_id filtering)
+- @.claude/skills/custom/frontend-design-system (API client, error handling)
+```
+
+
+---
+
+## Spec 6: Frontend-Backend Integration Testing
 
 ### `/sp.specify` Prompt
 
@@ -506,14 +981,15 @@ Create a specification for end-to-end integration testing of the full stack.
 - Performance testing (load tests)
 - Security penetration testing
 - Browser compatibility testing (focus on Chrome first)
+
 ```
 
 ### `/sp.plan` Prompt
 
 ```
-Create an implementation plan for Spec 5: Frontend-Backend Integration Testing.
+Create an implementation plan for Spec 6: Frontend-Backend Integration Testing.
 
-**Input:** specs/005-integration-testing/spec.md
+**Input:** specs/006-integration-testing/spec.md
 
 **Technical Context:**
 - E2E Framework: Playwright or Cypress
@@ -546,7 +1022,7 @@ Create an implementation plan for Spec 5: Frontend-Backend Integration Testing.
 
 ---
 
-## Spec 6: Deployment to Production
+## Spec 7: Deployment to Production
 
 ### `/sp.specify` Prompt
 
@@ -617,9 +1093,9 @@ Create a specification for deploying the full-stack application to production.
 ### `/sp.plan` Prompt
 
 ```
-Create an implementation plan for Spec 6: Deployment to Production.
+Create an implementation plan for Spec 7: Deployment to Production.
 
-**Input:** specs/006-deployment-production/spec.md
+**Input:** specs/007-deployment-production/spec.md
 
 **Technical Context:**
 - Frontend: Vercel (free tier, Next.js optimized)
@@ -652,7 +1128,7 @@ Create an implementation plan for Spec 6: Deployment to Production.
 
 ---
 
-## Spec 7: UI Polish & Advanced Features
+## Spec 8: UI Polish & Advanced Features
 
 ### `/sp.specify` Prompt
 
@@ -660,7 +1136,7 @@ Create an implementation plan for Spec 6: Deployment to Production.
 Create a specification for UI polish and advanced features to enhance user experience.
 
 **Context:**
-- Core functionality complete (Specs 1-6)
+- Core functionality complete (Specs 1-7)
 - This spec adds professional polish for demo and submission
 - Goal: Impressive UI for hackathon judges (90-second demo video)
 
@@ -724,9 +1200,9 @@ Create a specification for UI polish and advanced features to enhance user exper
 ### `/sp.plan` Prompt
 
 ```
-Create an implementation plan for Spec 7: UI Polish & Advanced Features.
+Create an implementation plan for Spec 8: UI Polish & Advanced Features.
 
-**Input:** specs/007-ui-polish-advanced/spec.md
+**Input:** specs/008-ui-polish-advanced/spec.md
 
 **Technical Context:**
 - Framework: Next.js 16+ (already built)
@@ -780,13 +1256,19 @@ Create an implementation plan for Spec 7: UI Polish & Advanced Features.
 | Spec | Focus | Estimated Time |
 |------|-------|----------------|
 | 1 | Project Setup & Auth | 6-8 hours |
-| 2 | Database Setup | 4-6 hours |
-| 3 | FastAPI CRUD APIs | 6-8 hours |
-| 4 | Frontend UI | 8-12 hours |
-| 5 | Integration Testing | 4-6 hours |
-| 6 | Deployment | 3-5 hours |
-| 7 | UI Polish | 6-10 hours |
-| **Total** | **Full Phase II** | **37-55 hours** |
+| 2 | Complete Database Schema (4 tables) | 6-8 hours |
+| 3 | **Complete API (14 endpoints, all features)** | **12-16 hours** |
+| 4 | Frontend UI (all features + tags + filters) | 12-16 hours |
+| 5 | Better Auth Integration (JWKS verification) | 8-12 hours |
+| 6 | Integration Testing (comprehensive) | 6-8 hours |
+| 7 | Deployment | 3-5 hours |
+| 8 | UI Polish | 6-10 hours |
+| **Total** | **Full Phase II (Complete App)** | **59-83 hours** |
+
+**Note:**
+- Spec 2 includes complete schema (tasks, tags, task_tags, notifications) to avoid migrations in Phase V.
+- **Spec 3 (Option A)** builds ALL features (Basic + Intermediate + Advanced) in Phase II as a monolith.
+- Phase V will focus on microservices decomposition, not adding features.
 
 ### Constitutional Compliance
 
@@ -801,7 +1283,7 @@ All prompts align with:
 **Next Steps:**
 1. Start with Spec 1 prompts
 2. Follow the cycle: Specify → Plan → Tasks → Implement
-3. Complete all 7 specs sequentially
+3. Complete all 8 specs sequentially
 4. Submit by December 14, 2025
 
 **Good luck with Phase II! 🚀**

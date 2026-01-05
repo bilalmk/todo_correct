@@ -250,7 +250,7 @@ export const loginSchema = z.object({
 
 #### Password Security
 - **Never Store Plain Text**: Only `password_hash` is stored
-- **Hash Algorithm**: pwdlib with recommended settings (bcrypt or argon2id)
+- **Hash Algorithm**: pwdlib with argon2id (PHC 2015 winner, superior to bcrypt)
 - **Async Hashing**: Use `run_in_threadpool` to avoid blocking event loop
 - **Timing Attacks**: Use constant-time comparison from pwdlib
 

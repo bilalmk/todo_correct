@@ -1,0 +1,130 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    /* Orange & Coral Theme - Primary brand color */
+    --primary: 24 95% 53%;        /* Orange #f97316 */
+    --primary-foreground: 0 0% 98%;
+    /* Orange & Coral Theme - Secondary accent color */
+    --secondary: 22 96% 61%;      /* Coral #fb923c */
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    /* Orange & Coral Theme - Tertiary accent color */
+    --accent: 38 92% 50%;         /* Amber #f59e0b */
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 24 95% 53%;           /* Orange focus ring */
+    --chart-1: 24 95% 53%;        /* Orange */
+    --chart-2: 22 96% 61%;        /* Coral */
+    --chart-3: 38 92% 50%;        /* Amber */
+    --chart-4: 158 84% 39%;       /* Green (success) */
+    --chart-5: 0 84% 60%;         /* Red (error) */
+    --radius: 0.5rem;
+  }
+  .dark {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    /* Orange & Coral Theme - Adjusted for dark mode */
+    --primary: 24 95% 60%;        /* Lighter orange for dark mode */
+    --primary-foreground: 0 0% 9%;
+    --secondary: 22 96% 68%;      /* Lighter coral for dark mode */
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 38 92% 58%;         /* Lighter amber for dark mode */
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 24 95% 60%;           /* Orange focus ring */
+    --chart-1: 24 95% 60%;        /* Orange */
+    --chart-2: 22 96% 68%;        /* Coral */
+    --chart-3: 38 92% 58%;        /* Amber */
+    --chart-4: 158 84% 45%;       /* Green */
+    --chart-5: 0 84% 65%;         /* Red */
+  }
+}
+
+
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom animations */
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+/* Smooth scroll behavior (T027 - building-nextjs-apps pattern) */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 80px; /* Account for fixed masthead height */
+}

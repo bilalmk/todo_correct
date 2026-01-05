@@ -1,0 +1,1019 @@
+openapi: 3.0.3
+info:
+  title: Todo Application API
+  version: 1.0.0
+  description: |
+    RESTful API for a multi-user todo application with JWT authentication,
+    advanced filtering, full-text search, and soft deletes.
+
+    **Features:**
+    - Basic: Create, read, update, delete, complete tasks
+    - Intermediate: Tags, priorities, due dates, search, filtering, sorting
+    - Advanced: Recurring tasks, reminders, time-based notifications
+
+    **Authentication:** All endpoints require JWT Bearer token except /health and /docs
+  contact:
+    name: Todo Evolution Hackathon
+    url: https://github.com/todo-evolution
+  license:
+    name: MIT
+
+servers:
+  - url: https://api.todo-app.example.com
+    description: Production server
+  - url: http://localhost:8000
+    description: Local development server
+
+tags:
+  - name: Tasks
+    description: Task CRUD operations and filtering
+  - name: Tags
+    description: Tag management for task categorization
+  - name: Task-Tags
+    description: Task-tag relationship operations
+  - name: Health
+    description: Health check endpoints
+
+security:
+  - BearerAuth: []
+
+paths:
+  # ===========================
+  # TASK ENDPOINTS (7)
+  # ===========================
+
+  /api/v1/{user_id}/tasks:
+    get:
+      tags: [Tasks]
+      summary: List tasks with filters
+      description: |
+        Get all tasks for authenticated user with optional filtering, searching, and sorting.
+
+        **Filters (AND logic):**
+        - status: Filter by completion status
+        - priority: Filter by priority level
+        - tag: Filter by tag name (multiple tags use OR logic; "none" for untagged tasks)
+        - due_before/due_after: Filter by due date range
+        - search: Full-text search on title and description
+
+        **Sorting:**
+        - sort: Field to sort by (created_at, due_date, priority, title)
+        - order: Sort direction (asc, desc)
+
+        **Default:** Sort by created_at descending (newest first)
+      operationId: listTasks
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [incomplete, complete]
+          description: Filter by completion status
+        - name: priority
+          in: query
+          schema:
+            $ref: '#/components/schemas/PriorityEnum'
+          description: Filter by priority level
+        - name: tag
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          explode: true
+          description: 'Filter by tag names (OR logic). Use "none" for untagged tasks'
+        - name: due_before
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter tasks due before this timestamp (ISO 8601)
+        - name: due_after
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter tasks due after this timestamp (ISO 8601)
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Full-text search on title and description
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [created_at, due_date, priority, title]
+            default: created_at
+          description: Field to sort by
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: Sort direction
+      responses:
+        '200':
+          description: List of tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaskResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      tags: [Tasks]
+      summary: Create a new task
+      description: Create a new task for the authenticated user
+      operationId: createTask
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreate'
+      responses:
+        '201':
+          description: Task created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/{user_id}/tasks/{task_id}:
+    get:
+      tags: [Tasks]
+      summary: Get a single task
+      description: Get task details by ID with nested tag information
+      operationId: getTask
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+        - $ref: '#/components/parameters/TaskIdPath'
+      responses:
+        '200':
+          description: Task details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      tags: [Tasks]
+      summary: Replace task (full update)
+      description: |
+        Replace all task fields (PUT = full replacement).
+        All non-nullable fields must be provided. Omitted optional fields reset to null.
+      operationId: replaceTask
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+        - $ref: '#/components/parameters/TaskIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskReplace'
+      responses:
+        '200':
+          description: Task replaced successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    patch:
+      tags: [Tasks]
+      summary: Update task (partial update)
+      description: |
+        Update only the provided fields (PATCH = partial update).
+        Omitted fields remain unchanged. updated_at timestamp is automatically updated.
+      operationId: updateTask
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+        - $ref: '#/components/parameters/TaskIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskUpdate'
+      responses:
+        '200':
+          description: Task updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      tags: [Tasks]
+      summary: Delete task (soft delete)
+      description: |
+        Soft delete task by setting deleted_at timestamp.
+        Task is excluded from future queries but remains in database for recovery.
+      operationId: deleteTask
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+        - $ref: '#/components/parameters/TaskIdPath'
+      responses:
+        '204':
+          description: Task deleted successfully (no content)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/{user_id}/tasks/{task_id}/complete:
+    patch:
+      tags: [Tasks]
+      summary: Toggle task completion
+      description: Mark task as complete or incomplete
+      operationId: completeTask
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+        - $ref: '#/components/parameters/TaskIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [completed]
+              properties:
+                completed:
+                  type: boolean
+                  description: New completion status
+              example:
+                completed: true
+      responses:
+        '200':
+          description: Task completion status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ===========================
+  # TAG ENDPOINTS (5)
+  # ===========================
+
+  /api/v1/{user_id}/tags:
+    get:
+      tags: [Tags]
+      summary: List all tags
+      description: Get all active tags for authenticated user
+      operationId: listTags
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+      responses:
+        '200':
+          description: List of tags
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TagResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      tags: [Tags]
+      summary: Create a new tag
+      description: |
+        Create a new tag with name and optional color.
+        Tag names must be unique per user (409 Conflict if duplicate).
+        Hex colors are normalized to uppercase #RRGGBB format.
+      operationId: createTag
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TagCreate'
+      responses:
+        '201':
+          description: Tag created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/{user_id}/tags/{tag_id}:
+    get:
+      tags: [Tags]
+      summary: Get a single tag
+      description: Get tag details by ID
+      operationId: getTag
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+        - $ref: '#/components/parameters/TagIdPath'
+      responses:
+        '200':
+          description: Tag details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      tags: [Tags]
+      summary: Update tag
+      description: Update tag name and/or color (partial update)
+      operationId: updateTag
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+        - $ref: '#/components/parameters/TagIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TagUpdate'
+      responses:
+        '200':
+          description: Tag updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      tags: [Tags]
+      summary: Delete tag (soft delete)
+      description: |
+        Soft delete tag by setting deleted_at timestamp.
+        Task-tag junction records are preserved for data integrity.
+        Soft-deleted tags are excluded from task responses.
+      operationId: deleteTag
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+        - $ref: '#/components/parameters/TagIdPath'
+      responses:
+        '204':
+          description: Tag deleted successfully (no content)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ===========================
+  # TASK-TAG ENDPOINTS (3)
+  # ===========================
+
+  /api/v1/{user_id}/tasks/{task_id}/tags:
+    get:
+      tags: [Task-Tags]
+      summary: List task's tags
+      description: Get all active tags assigned to a task
+      operationId: listTaskTags
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+        - $ref: '#/components/parameters/TaskIdPath'
+      responses:
+        '200':
+          description: List of tags
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TagResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      tags: [Task-Tags]
+      summary: Assign tag to task
+      description: |
+        Create a task-tag relationship.
+        Returns 409 Conflict if tag is already assigned to task.
+      operationId: assignTag
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+        - $ref: '#/components/parameters/TaskIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskTagCreate'
+      responses:
+        '201':
+          description: Tag assigned successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskTagResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/{user_id}/tasks/{task_id}/tags/{tag_id}:
+    delete:
+      tags: [Task-Tags]
+      summary: Remove tag from task
+      description: Delete task-tag junction record
+      operationId: unassignTag
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+        - $ref: '#/components/parameters/TaskIdPath'
+        - $ref: '#/components/parameters/TagIdPath'
+      responses:
+        '204':
+          description: Tag removed successfully (no content)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ===========================
+  # HEALTH ENDPOINT
+  # ===========================
+
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      description: Check API and database health (no authentication required)
+      operationId: healthCheck
+      security: []  # No authentication required
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  database:
+                    type: string
+                    example: "connected"
+                  timestamp:
+                    type: string
+                    format: date-time
+        '503':
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "unhealthy"
+                  database:
+                    type: string
+                    example: "disconnected"
+
+# ===========================
+# COMPONENTS
+# ===========================
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token from authentication endpoint
+
+  parameters:
+    UserIdPath:
+      name: user_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: User ID (must match JWT user_id claim)
+
+    TaskIdPath:
+      name: task_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+      description: Task ID
+
+    TagIdPath:
+      name: tag_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+      description: Tag ID
+
+  schemas:
+    PriorityEnum:
+      type: string
+      enum: [low, medium, high]
+      description: Task priority level
+
+    RecurrencePatternEnum:
+      type: string
+      enum: [daily, weekly, monthly, custom]
+      description: Recurrence pattern for recurring tasks
+
+    TaskCreate:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Task title
+        description:
+          type: string
+          maxLength: 10000
+          nullable: true
+          description: Detailed description
+        completed:
+          type: boolean
+          default: false
+          description: Completion status
+        priority:
+          $ref: '#/components/schemas/PriorityEnum'
+        due_date:
+          type: string
+          format: date-time
+          nullable: true
+          description: Task deadline (ISO 8601 UTC)
+        reminder_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Reminder trigger time (must be before due_date)
+        recurrence_pattern:
+          $ref: '#/components/schemas/RecurrencePatternEnum'
+        recurrence_config:
+          type: object
+          nullable: true
+          description: JSONB config with RRULE format
+          example: {"rrule": "FREQ=WEEKLY;BYDAY=MO,FR"}
+      example:
+        title: "Buy groceries"
+        description: "Milk, eggs, bread"
+        priority: "high"
+        due_date: "2025-12-31T10:00:00Z"
+        reminder_at: "2025-12-30T09:45:00Z"
+
+    TaskUpdate:
+      type: object
+      description: Partial task update (all fields optional)
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 10000
+          nullable: true
+        completed:
+          type: boolean
+        priority:
+          $ref: '#/components/schemas/PriorityEnum'
+        due_date:
+          type: string
+          format: date-time
+          nullable: true
+        reminder_at:
+          type: string
+          format: date-time
+          nullable: true
+        recurrence_pattern:
+          $ref: '#/components/schemas/RecurrencePatternEnum'
+        recurrence_config:
+          type: object
+          nullable: true
+      example:
+        title: "Buy groceries and bread"
+        priority: "medium"
+
+    TaskReplace:
+      type: object
+      required: [title, completed]
+      description: Full task replacement (all non-nullable fields required)
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 10000
+          nullable: true
+        completed:
+          type: boolean
+        priority:
+          $ref: '#/components/schemas/PriorityEnum'
+        due_date:
+          type: string
+          format: date-time
+          nullable: true
+        reminder_at:
+          type: string
+          format: date-time
+          nullable: true
+        recurrence_pattern:
+          $ref: '#/components/schemas/RecurrencePatternEnum'
+        recurrence_config:
+          type: object
+          nullable: true
+
+    TaskResponse:
+      type: object
+      required: [id, user_id, title, completed, created_at, updated_at, tags]
+      properties:
+        id:
+          type: integer
+          format: int64
+        user_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        completed:
+          type: boolean
+        priority:
+          type: string
+          nullable: true
+        due_date:
+          type: string
+          format: date-time
+          nullable: true
+        reminder_at:
+          type: string
+          format: date-time
+          nullable: true
+        recurrence_pattern:
+          type: string
+          nullable: true
+        recurrence_config:
+          type: object
+          nullable: true
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagResponse'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      example:
+        id: 123
+        user_id: "123e4567-e89b-12d3-a456-426614174000"
+        title: "Buy groceries"
+        description: "Milk, eggs, bread"
+        completed: false
+        priority: "high"
+        due_date: "2025-12-31T10:00:00Z"
+        reminder_at: "2025-12-30T09:45:00Z"
+        recurrence_pattern: "weekly"
+        recurrence_config: {"rrule": "FREQ=WEEKLY;BYDAY=MO,FR"}
+        tags:
+          - id: 1
+            user_id: "123e4567-e89b-12d3-a456-426614174000"
+            name: "work"
+            color: "#FF5733"
+            created_at: "2025-12-30T10:00:00Z"
+        created_at: "2025-12-30T10:00:00Z"
+        updated_at: "2025-12-30T11:30:00Z"
+
+    TagCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Tag name (unique per user)
+        color:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{3}$|^#[0-9A-Fa-f]{6}$'
+          nullable: true
+          description: Hex color (#RRGGBB or #RGB, normalized to uppercase)
+      example:
+        name: "work"
+        color: "#FF5733"
+
+    TagUpdate:
+      type: object
+      description: Tag update (all fields optional)
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+        color:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{3}$|^#[0-9A-Fa-f]{6}$'
+          nullable: true
+
+    TagResponse:
+      type: object
+      required: [id, user_id, name, created_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        color:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+      example:
+        id: 1
+        user_id: "123e4567-e89b-12d3-a456-426614174000"
+        name: "work"
+        color: "#FF5733"
+        created_at: "2025-12-30T10:00:00Z"
+
+    TaskTagCreate:
+      type: object
+      required: [tag_id]
+      properties:
+        tag_id:
+          type: integer
+          format: int64
+          minimum: 1
+          description: ID of tag to assign
+      example:
+        tag_id: 5
+
+    TaskTagResponse:
+      type: object
+      required: [task_id, tag_id, message]
+      properties:
+        task_id:
+          type: integer
+          format: int64
+        tag_id:
+          type: integer
+          format: int64
+        message:
+          type: string
+      example:
+        task_id: 123
+        tag_id: 5
+        message: "Tag assigned successfully"
+
+    ErrorResponse:
+      type: object
+      required: [error, code, status, request_id]
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+        code:
+          type: string
+          description: Machine-readable error code
+        status:
+          type: integer
+          description: HTTP status code
+        request_id:
+          type: string
+          description: Request ID for tracing
+      example:
+        error: "Task not found"
+        code: "TASK_NOT_FOUND"
+        status: 404
+        request_id: "req_abc123xyz"
+
+  responses:
+    BadRequest:
+      description: Bad request (malformed JSON)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Invalid JSON format"
+            code: "BAD_REQUEST"
+            status: 400
+            request_id: "req_abc123"
+
+    Unauthorized:
+      description: Missing or invalid JWT token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Token expired"
+            code: "UNAUTHORIZED"
+            status: 401
+            request_id: "req_abc123"
+
+    Forbidden:
+      description: User ID mismatch (JWT user_id ≠ URL user_id)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "User ID mismatch"
+            code: "FORBIDDEN"
+            status: 403
+            request_id: "req_abc123"
+
+    NotFound:
+      description: Resource not found or belongs to another user
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Task not found"
+            code: "TASK_NOT_FOUND"
+            status: 404
+            request_id: "req_abc123"
+
+    Conflict:
+      description: Unique constraint violation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Tag name already exists"
+            code: "TAG_NAME_CONFLICT"
+            status: 409
+            request_id: "req_abc123"
+
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Title must be 255 characters or less"
+            code: "VALIDATION_ERROR"
+            status: 422
+            request_id: "req_abc123"
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "An unexpected error occurred"
+            code: "INTERNAL_ERROR"
+            status: 500
+            request_id: "req_abc123"
