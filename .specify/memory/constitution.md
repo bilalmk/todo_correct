@@ -2,33 +2,37 @@
   ============================================================================
   SYNC IMPACT REPORT - Constitution Update
   ============================================================================
-  Version Change: Template (0.0.0) → 1.0.0
+  Version Change: 1.0.0 → 1.1.0
 
-  Change Type: MAJOR - Initial constitution establishment
+  Change Type: MINOR - New principle section added
 
-  Rationale: First adoption of comprehensive constitution defining 10 core
-  principle sections covering development philosophy, technology selection,
-  architecture, code quality, security, performance, operations, workflow,
-  prohibited practices, and success criteria.
+  Rationale: Added "AI & External Service Integration Principles" section to
+  establish timeless patterns for integrating ANY third-party AI/LLM services,
+  conversational interfaces, and external tool protocols. Principles are
+  phase-agnostic and apply to current (Phase 3 chatbot) and future AI/external
+  service integrations.
 
   Modified Sections:
-  - NEW: 10 constitutional principle sections (Development Philosophy through
-    Success Criteria)
-  - NEW: Governance section with amendment procedures
+  - NEW: Section 11 "AI & External Service Integration Principles" (5 subsections)
 
   Templates Requiring Updates:
-  ✅ plan-template.md - Constitution Check section aligns with new principles
-  ✅ spec-template.md - Spec requirements align with new workflow principles
-  ✅ tasks-template.md - Task organization reflects new quality standards
+  ✅ plan-template.md - Constitution Check includes AI/external service gates
+  ✅ spec-template.md - User scenarios can include conversational/tool flows
+  ✅ tasks-template.md - Task types include external tool/service integration
+
+  Referenced Skills (examples for Phase 3, but principles apply broadly):
+  - .claude/skills/mjs/building-mcp-servers (tool protocol patterns)
+  - .claude/skills/mjs/building-chat-interfaces (conversational UI patterns)
+  - .claude/skills/mjs/tool-design (external tool design patterns)
 
   Follow-up TODOs:
   - None - all placeholders filled
 
   Dependencies:
-  - CLAUDE.md contains project-specific constraints (tech stack, deadlines)
-  - This constitution contains only timeless principles
+  - CLAUDE.md contains phase-specific technology mandates (e.g., OpenAI, MCP)
+  - This constitution contains only timeless integration principles
 
-  Date: 2025-12-29
+  Date: 2026-01-07
   ============================================================================
 -->
 
@@ -253,7 +257,39 @@ Specification reviewed and approved before planning. Plan reviewed for architect
 ❌ Ignoring error logs or alerts
 ❌ Deploying without rollback plan
 
-### 10. Success Criteria (How We Measure Excellence)
+**AI & External Services**
+
+❌ Storing conversation state in memory (MUST persist to database)
+❌ Exposing AI API keys in frontend or client-side code
+❌ Trusting AI responses without validation
+❌ Direct HTTP calls to AI APIs (use official SDKs)
+❌ Tools with side effects in multiple domains (violates atomicity)
+❌ Unscoped tools (missing user_id enforcement)
+❌ Synchronous AI calls blocking request threads
+
+### 10. AI & External Service Integration Principles
+
+**LLM & AI Service Integration**
+
+Use established AI/LLM SDKs and frameworks (no direct HTTP clients). Support streaming responses for real-time user experience. Track and log token/API usage for cost monitoring. Implement graceful fallbacks when AI services unavailable (error messages, cached responses). Never expose API keys in frontend code or client-side storage. Rate limit AI requests to prevent quota exhaustion. Validate AI responses before presenting to users (schema validation, safety checks).
+
+**External Tool Protocol Architecture**
+
+Use official SDKs for external tool protocols (e.g., MCP, function calling). All tool implementations MUST be stateless (no in-memory state between invocations). Tool state persisted to database (conversation context, tool execution history). Schema validation for all tool inputs/outputs (Pydantic, Zod). Idempotent tool execution (safe to retry on failure). Tools scoped by user_id (multi-tenancy enforced at tool level). Tool execution timeouts prevent blocking (default: 30s, max: 2 minutes). Dead letter queues for failed tool executions.
+
+**Conversational State Management**
+
+All conversation state MUST be persisted to database (messages, context, metadata). Server MUST remain stateless (any instance can handle any conversation). Load conversation context from database on every request. Conversation data scoped by user_id + conversation_id (no cross-user leakage). Support conversation resumption after server restart (validated in tests). Implement conversation history limits (e.g., last 20 messages to control token usage). Archive old conversations (soft delete after 90 days inactivity).
+
+**AI Tool Design Standards**
+
+Tool names MUST match user intent and domain language (add_task not create_todo_item). Required user_id parameter on ALL tools (enforce ownership at tool boundary). Atomic operations (one responsibility per tool, no multi-step workflows). Return structured JSON responses (not prose or unstructured text). Error messages MUST be actionable for AI to self-correct (clear cause, suggested fix). Tool descriptions optimized for AI understanding (clear parameters, examples, constraints). Tool versioning for backward compatibility (v1/add_task, v2/add_task).
+
+**Conversational Interface Security**
+
+Domain allowlist for hosted conversational UIs (prevent CORS attacks). Use httpOnly cookies for session tokens (prevent XSS token theft). Server-side token verification on every request (never trust client). All conversational endpoints require authentication. Validate user_id from token matches requested resources. Rate limiting on conversational endpoints (prevent abuse, DoS). Content filtering on user inputs (prevent prompt injection, jailbreaking). Audit logs for all AI interactions (user_id, prompt, response, timestamp).
+
+### 11. Success Criteria (How We Measure Excellence)
 
 **Functional Completeness**
 
@@ -315,4 +351,4 @@ When conflicts arise between documents:
 
 ---
 
-**Version**: 1.0.0 | **Ratified**: 2025-12-29 | **Last Amended**: 2025-12-29
+**Version**: 1.1.0 | **Ratified**: 2025-12-29 | **Last Amended**: 2026-01-07
