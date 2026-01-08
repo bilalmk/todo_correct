@@ -1,0 +1,581 @@
+# MCP Tool Schemas for Todo App
+# OpenAPI-compatible specification for MCP server tools
+# Feature: 007-mcp-server
+# Date: 2026-01-07
+
+openapi: 3.1.0
+info:
+  title: Todo MCP Server
+  description: |
+    Model Context Protocol (MCP) server exposing task management tools for
+    OpenAI Agents SDK integration. This server provides 5 stateless tools
+    for creating, listing, updating, completing, and deleting tasks via
+    natural language AI interactions.
+  version: 1.0.0
+  contact:
+    name: MCP Server Support
+
+servers:
+  - url: http://localhost:8001/mcp
+    description: Local development server
+
+components:
+  schemas:
+    UUID:
+      type: string
+      format: uuid
+      pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      description: UUID in 8-4-4-4-12 hexadecimal format
+      example: "550e8400-e29b-41d4-a716-446655440000"
+
+    TaskStatus:
+      type: string
+      enum: [all, pending, completed]
+      default: all
+      description: Task status filter for list operations
+
+    OperationStatus:
+      type: string
+      enum: [created, completed, deleted, updated]
+      description: Result status of task operation
+
+    # Input Schemas
+    AddTaskInput:
+      type: object
+      required:
+        - user_id
+        - title
+      properties:
+        user_id:
+          $ref: '#/components/schemas/UUID'
+          description: User ID performing the action
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Task title (required, 1-255 characters)
+          example: "Buy groceries"
+        description:
+          type: string
+          maxLength: 10000
+          nullable: true
+          description: Task description (optional, max 10,000 characters)
+          example: "Milk, eggs, bread, and vegetables"
+
+    ListTasksInput:
+      type: object
+      required:
+        - user_id
+      properties:
+        user_id:
+          $ref: '#/components/schemas/UUID'
+          description: User ID performing the action
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+          description: Filter by task status (default: all)
+
+    CompleteTaskInput:
+      type: object
+      required:
+        - user_id
+        - task_id
+      properties:
+        user_id:
+          $ref: '#/components/schemas/UUID'
+          description: User ID performing the action
+        task_id:
+          type: integer
+          minimum: 1
+          description: Task ID to mark as completed
+          example: 42
+
+    DeleteTaskInput:
+      type: object
+      required:
+        - user_id
+        - task_id
+      properties:
+        user_id:
+          $ref: '#/components/schemas/UUID'
+          description: User ID performing the action
+        task_id:
+          type: integer
+          minimum: 1
+          description: Task ID to soft delete
+          example: 42
+
+    UpdateTaskInput:
+      type: object
+      required:
+        - user_id
+        - task_id
+      properties:
+        user_id:
+          $ref: '#/components/schemas/UUID'
+          description: User ID performing the action
+        task_id:
+          type: integer
+          minimum: 1
+          description: Task ID to update
+          example: 42
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+          nullable: true
+          description: New task title (optional, 1-255 characters)
+          example: "Buy groceries at 5pm"
+        description:
+          type: string
+          maxLength: 10000
+          nullable: true
+          description: New task description (optional, max 10,000 characters)
+          example: "Updated description with more details"
+      description: At least one of title or description must be provided
+
+    # Response Schemas
+    SingleTaskResponse:
+      type: object
+      required:
+        - task_id
+        - status
+        - title
+      properties:
+        task_id:
+          type: integer
+          description: Unique task identifier
+          example: 42
+        status:
+          $ref: '#/components/schemas/OperationStatus'
+          description: Operation result status
+        title:
+          type: string
+          description: Task title
+          example: "Buy groceries"
+
+    TaskObject:
+      type: object
+      required:
+        - task_id
+        - title
+        - completed
+        - created_at
+        - updated_at
+      properties:
+        task_id:
+          type: integer
+          description: Unique task identifier
+          example: 42
+        title:
+          type: string
+          description: Task title
+          example: "Buy groceries"
+        description:
+          type: string
+          nullable: true
+          description: Task description (nullable)
+          example: "Milk, eggs, bread"
+        completed:
+          type: boolean
+          description: Completion status
+          example: false
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp (ISO 8601 UTC)
+          example: "2026-01-07T10:30:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp (ISO 8601 UTC)
+          example: "2026-01-07T10:30:00Z"
+
+    ListTasksResponse:
+      type: object
+      required:
+        - total
+        - tasks
+      properties:
+        total:
+          type: integer
+          description: Number of tasks returned
+          example: 15
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskObject'
+          description: Array of task objects
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+        - code
+      properties:
+        error:
+          type: boolean
+          description: Always true for error responses
+          example: true
+        message:
+          type: string
+          description: Human-readable error message optimized for AI reformulation
+          example: "Task 42 not found for user 550e8400-e29b-41d4-a716-446655440000. Please verify the task ID and try again."
+        code:
+          type: string
+          enum: [TASK_NOT_FOUND, VALIDATION_ERROR, DATABASE_ERROR, INVALID_USER_ID]
+          description: Machine-readable error code
+          example: "TASK_NOT_FOUND"
+        task_id:
+          type: integer
+          nullable: true
+          description: Optional task ID context for debugging
+          example: 42
+        user_id:
+          type: string
+          nullable: true
+          description: Optional user ID context for debugging
+          example: "550e8400-e29b-41d4-a716-446655440000"
+
+# MCP Tools (mapped to OpenAPI paths for documentation)
+paths:
+  /tools/todo_add_task:
+    post:
+      summary: Create a new task
+      description: |
+        Create a new task for the authenticated user via natural language AI interaction.
+
+        **MCP Tool Name**: todo_add_task
+        **MCP Tool Annotations**:
+        - readOnlyHint: false (modifies database)
+        - destructiveHint: false (creates data, does not destroy)
+        - idempotentHint: false (creates new task each time)
+        - openWorldHint: false (no external entity interaction)
+
+        **Use Cases**:
+        - User says: "Add a task to buy groceries"
+        - User says: "Create a task titled 'Call dentist' with description 'Schedule annual checkup'"
+      operationId: todo_add_task
+      tags:
+        - Task Management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddTaskInput'
+            examples:
+              basic:
+                summary: Basic task with title only
+                value:
+                  user_id: "550e8400-e29b-41d4-a716-446655440000"
+                  title: "Buy groceries"
+              with_description:
+                summary: Task with title and description
+                value:
+                  user_id: "550e8400-e29b-41d4-a716-446655440000"
+                  title: "Call dentist"
+                  description: "Schedule annual checkup appointment"
+      responses:
+        '200':
+          description: Task created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SingleTaskResponse'
+              example:
+                task_id: 42
+                status: "created"
+                title: "Buy groceries"
+        '400':
+          description: Validation error (invalid input)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: true
+                message: "Task title exceeds maximum length of 255 characters"
+                code: "VALIDATION_ERROR"
+        '500':
+          description: Database error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: true
+                message: "Database connection error: unable to execute operation. Please try again."
+                code: "DATABASE_ERROR"
+
+  /tools/todo_list_tasks:
+    post:
+      summary: List user's tasks with optional status filter
+      description: |
+        Retrieve all tasks for the authenticated user, optionally filtered by completion status.
+
+        **MCP Tool Name**: todo_list_tasks
+        **MCP Tool Annotations**:
+        - readOnlyHint: true (does not modify database)
+        - destructiveHint: false (only reads data)
+        - idempotentHint: true (same query returns same results)
+        - openWorldHint: false (no external entity interaction)
+
+        **Use Cases**:
+        - User says: "Show me all my tasks"
+        - User says: "What are my pending tasks?"
+        - User says: "List completed tasks"
+      operationId: todo_list_tasks
+      tags:
+        - Task Management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListTasksInput'
+            examples:
+              all_tasks:
+                summary: List all tasks (default)
+                value:
+                  user_id: "550e8400-e29b-41d4-a716-446655440000"
+                  status: "all"
+              pending_only:
+                summary: List only pending tasks
+                value:
+                  user_id: "550e8400-e29b-41d4-a716-446655440000"
+                  status: "pending"
+              completed_only:
+                summary: List only completed tasks
+                value:
+                  user_id: "550e8400-e29b-41d4-a716-446655440000"
+                  status: "completed"
+      responses:
+        '200':
+          description: Tasks retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListTasksResponse'
+              examples:
+                with_tasks:
+                  summary: User has tasks
+                  value:
+                    total: 2
+                    tasks:
+                      - task_id: 42
+                        title: "Buy groceries"
+                        description: "Milk, eggs, bread"
+                        completed: false
+                        created_at: "2026-01-07T10:30:00Z"
+                        updated_at: "2026-01-07T10:30:00Z"
+                      - task_id: 43
+                        title: "Call dentist"
+                        description: null
+                        completed: true
+                        created_at: "2026-01-06T14:20:00Z"
+                        updated_at: "2026-01-07T09:15:00Z"
+                empty:
+                  summary: User has no tasks
+                  value:
+                    total: 0
+                    tasks: []
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /tools/todo_complete_task:
+    post:
+      summary: Mark a task as completed
+      description: |
+        Mark a task as completed for the authenticated user. This operation is idempotent:
+        completing an already-completed task succeeds without error and updates the updated_at timestamp.
+
+        **MCP Tool Name**: todo_complete_task
+        **MCP Tool Annotations**:
+        - readOnlyHint: false (modifies database)
+        - destructiveHint: false (updates data, does not destroy)
+        - idempotentHint: true (completing completed task succeeds)
+        - openWorldHint: false (no external entity interaction)
+
+        **Use Cases**:
+        - User says: "Mark 'Buy groceries' as complete"
+        - User says: "I finished task 42"
+        - User says: "Complete the dentist appointment task"
+      operationId: todo_complete_task
+      tags:
+        - Task Management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteTaskInput'
+            example:
+              user_id: "550e8400-e29b-41d4-a716-446655440000"
+              task_id: 42
+      responses:
+        '200':
+          description: Task marked as completed (idempotent)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SingleTaskResponse'
+              example:
+                task_id: 42
+                status: "completed"
+                title: "Buy groceries"
+        '404':
+          description: Task not found for this user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: true
+                message: "Task 42 not found for user 550e8400-e29b-41d4-a716-446655440000. Please verify the task ID and try again."
+                code: "TASK_NOT_FOUND"
+                task_id: 42
+                user_id: "550e8400-e29b-41d4-a716-446655440000"
+
+  /tools/todo_delete_task:
+    post:
+      summary: Soft delete a task
+      description: |
+        Soft delete a task by setting the deleted_at timestamp. The task is no longer returned
+        by list_tasks but remains in the database for potential recovery.
+
+        **MCP Tool Name**: todo_delete_task
+        **MCP Tool Annotations**:
+        - readOnlyHint: false (modifies database)
+        - destructiveHint: true (soft deletes data)
+        - idempotentHint: false (deleting deleted task returns error)
+        - openWorldHint: false (no external entity interaction)
+
+        **Use Cases**:
+        - User says: "Delete the buy groceries task"
+        - User says: "Remove task 42"
+        - User says: "Get rid of the dentist task"
+      operationId: todo_delete_task
+      tags:
+        - Task Management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteTaskInput'
+            example:
+              user_id: "550e8400-e29b-41d4-a716-446655440000"
+              task_id: 42
+      responses:
+        '200':
+          description: Task soft deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SingleTaskResponse'
+              example:
+                task_id: 42
+                status: "deleted"
+                title: "Buy groceries"
+        '404':
+          description: Task not found for this user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: true
+                message: "Task 42 not found for user 550e8400-e29b-41d4-a716-446655440000. Please verify the task ID and try again."
+                code: "TASK_NOT_FOUND"
+                task_id: 42
+                user_id: "550e8400-e29b-41d4-a716-446655440000"
+
+  /tools/todo_update_task:
+    post:
+      summary: Update task title or description
+      description: |
+        Update a task's title and/or description. At least one of title or description
+        must be provided.
+
+        **MCP Tool Name**: todo_update_task
+        **MCP Tool Annotations**:
+        - readOnlyHint: false (modifies database)
+        - destructiveHint: false (updates data, does not destroy)
+        - idempotentHint: false (each update changes updated_at)
+        - openWorldHint: false (no external entity interaction)
+
+        **Use Cases**:
+        - User says: "Change task 42 title to 'Buy groceries at 5pm'"
+        - User says: "Update the description for the dentist task"
+        - User says: "Rename 'Call dentist' to 'Call dentist tomorrow'"
+      operationId: todo_update_task
+      tags:
+        - Task Management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTaskInput'
+            examples:
+              update_title:
+                summary: Update title only
+                value:
+                  user_id: "550e8400-e29b-41d4-a716-446655440000"
+                  task_id: 42
+                  title: "Buy groceries at 5pm"
+              update_description:
+                summary: Update description only
+                value:
+                  user_id: "550e8400-e29b-41d4-a716-446655440000"
+                  task_id: 42
+                  description: "Updated: Milk, eggs, bread, vegetables, and fruit"
+              update_both:
+                summary: Update both title and description
+                value:
+                  user_id: "550e8400-e29b-41d4-a716-446655440000"
+                  task_id: 42
+                  title: "Buy groceries at 5pm"
+                  description: "Milk, eggs, bread, vegetables, and fruit"
+      responses:
+        '200':
+          description: Task updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SingleTaskResponse'
+              example:
+                task_id: 42
+                status: "updated"
+                title: "Buy groceries at 5pm"
+        '400':
+          description: Validation error (neither title nor description provided)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: true
+                message: "At least one of 'title' or 'description' must be provided for update"
+                code: "VALIDATION_ERROR"
+        '404':
+          description: Task not found for this user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: true
+                message: "Task 42 not found for user 550e8400-e29b-41d4-a716-446655440000. Please verify the task ID and try again."
+                code: "TASK_NOT_FOUND"
+                task_id: 42
+                user_id: "550e8400-e29b-41d4-a716-446655440000"
+
+tags:
+  - name: Task Management
+    description: MCP tools for managing todo tasks via natural language AI interactions
