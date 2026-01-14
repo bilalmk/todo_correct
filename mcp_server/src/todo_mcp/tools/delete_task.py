@@ -7,18 +7,23 @@ Soft deletes a task for the specified user (sets deleted_at timestamp).
 from datetime import datetime, timezone
 from sqlmodel import select
 
-from todo_mcp.app import mcp
 from todo_mcp.models.inputs import DeleteTaskInput
 from todo_mcp.utils.logging import log_tool_invocation
 from todo_mcp.utils.errors import task_not_found_error, database_error
 from todo_mcp.utils.responses import format_task_result
 from todo_mcp.database import get_db_session
+from todo_mcp.tools_registry import register_tool
 
 # Import Task model from backend via shared module
 from todo_mcp.shared_models import Task
 
 
-@mcp.tool(name="todo_delete_task")
+async def delete_task_handler(arguments: dict) -> str:
+    """Handler function that accepts raw arguments dict."""
+    params = DeleteTaskInput(**arguments)
+    return await delete_task(params)
+
+
 async def delete_task(params: DeleteTaskInput) -> str:
     """
     Soft delete a task (set deleted_at timestamp).
@@ -103,3 +108,7 @@ async def delete_task(params: DeleteTaskInput) -> str:
             duration_ms=duration_ms,
         )
         return database_error()
+
+
+# Register the tool handler
+register_tool("todo_delete_task", delete_task_handler)

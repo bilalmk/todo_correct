@@ -24,11 +24,13 @@ if is_test:
     engine_kwargs["poolclass"] = NullPool
 else:
     # Use connection pooling for production
+    # T009 (FR-023): Configure pool to support 50 concurrent requests (SC-003)
     engine_kwargs.update({
-        "pool_size": 5,
-        "max_overflow": 10,
-        "pool_pre_ping": True,
-        "pool_recycle": 3600,
+        "pool_size": 10,          # Minimum persistent connections
+        "max_overflow": 40,       # Additional connections on demand (total max=50)
+        "pool_timeout": 30,       # Wait up to 30s for connection before TimeoutError
+        "pool_pre_ping": True,    # Health check connections before use
+        "pool_recycle": 3600,     # Recycle connections every hour
     })
 
 engine: AsyncEngine = create_async_engine(
@@ -117,6 +119,8 @@ async def check_database_health() -> bool:
                         'tags',
                         'task_tags',
                         'notifications',
+                        'conversations', # ChatKit Phase III (T005)
+                        'messages',      # ChatKit Phase III (T006)
                     }
                     return required_tables.issubset(set(tables))
 

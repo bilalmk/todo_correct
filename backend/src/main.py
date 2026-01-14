@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from .api import tasks, tags, task_tags
+from .api import tasks, tags, task_tags, chatkit
 from .schemas.common import ErrorResponse
 from .core.config import settings
 from .core.logging import setup_logging, set_correlation_id, get_correlation_id
@@ -73,8 +73,18 @@ class CSRFValidationMiddleware(BaseHTTPMiddleware):
         if request.method in self.SAFE_METHODS:
             return await call_next(request)
 
-        # Skip CSRF validation for health/docs endpoints
-        if request.url.path in ["/health", "/docs", "/redoc", "/openapi.json"]:
+        # Skip CSRF validation for health/docs endpoints and ChatKit endpoints
+        # ChatKit endpoints use Bearer token authentication (not cookies), so CSRF not applicable
+        csrf_exempt_paths = [
+            "/health",
+            "/docs",
+            "/redoc",
+            "/openapi.json",
+            "/api/chatkit/health",
+            "/api/chatkit/chat",
+            "/api/chatkit/conversation",
+        ]
+        if request.url.path in csrf_exempt_paths:
             return await call_next(request)
 
         # Extract CSRF token from cookie (Better Auth sets this automatically)
@@ -296,6 +306,8 @@ async def health_check():
 app.include_router(tasks.router, tags=["Tasks"])
 app.include_router(tags.router, tags=["Tags"])
 app.include_router(task_tags.router, tags=["Task-Tags"])
+# T026: Register ChatKit router (Phase III - US5)
+app.include_router(chatkit.router, prefix="/api/chatkit", tags=["ChatKit"])
 
 
 # Root endpoint

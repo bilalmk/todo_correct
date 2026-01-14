@@ -13,7 +13,16 @@ from sqlmodel import SQLModel
 from src.core.config import settings
 from src.core.database import get_session
 from main import app
+
+# Import ALL models to register them with SQLModel.metadata
+# This ensures create_all() knows about all tables and their dependencies
 from src.models.user import User
+from src.models.task import Task
+from src.models.tag import Tag
+from src.models.task_tag import TaskTag
+from src.models.notification import Notification
+from src.models.conversation import Conversation
+from src.models.message import Message
 
 
 # Test database URL - use separate test database

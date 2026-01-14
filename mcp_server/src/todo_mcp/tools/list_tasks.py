@@ -7,18 +7,23 @@ Retrieves user's tasks with optional status filter (all/pending/completed).
 from datetime import datetime, timezone
 from sqlmodel import select
 
-from todo_mcp.app import mcp
 from todo_mcp.models.inputs import ListTasksInput
 from todo_mcp.utils.logging import log_tool_invocation
 from todo_mcp.utils.errors import database_error
 from todo_mcp.utils.responses import format_task_list
 from todo_mcp.database import get_db_session
+from todo_mcp.tools_registry import register_tool
 
 # Import Task model from backend via shared module
 from todo_mcp.shared_models import Task
 
 
-@mcp.tool(name="todo_list_tasks")
+async def list_tasks_handler(arguments: dict) -> str:
+    """Handler function that accepts raw arguments dict."""
+    params = ListTasksInput(**arguments)
+    return await list_tasks(params)
+
+
 async def list_tasks(params: ListTasksInput) -> str:
     """
     Retrieve user's tasks with optional status filter.
@@ -96,3 +101,7 @@ async def list_tasks(params: ListTasksInput) -> str:
             duration_ms=duration_ms,
         )
         return database_error()
+
+
+# Register the tool handler
+register_tool("todo_list_tasks", list_tasks_handler)

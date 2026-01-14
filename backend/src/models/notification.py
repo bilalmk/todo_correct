@@ -22,10 +22,10 @@ class Notification(SQLModel, table=True):
         sa_column=Column(BigInteger, primary_key=True, autoincrement=True),
     )
 
-    # Foreign key to users table with ON DELETE CASCADE
+    # Foreign key to user table (uuid column) with ON DELETE CASCADE
     user_id: UUID = Field(
         sa_column=Column(
-            ForeignKey("users.id", ondelete="CASCADE"),
+            ForeignKey("user.uuid", ondelete="CASCADE"),
             nullable=False,
             index=True,
         ),

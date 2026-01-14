@@ -1,16 +1,16 @@
 """
-FastMCP application instance for Todo MCP Server.
+Official MCP SDK Server instance for Todo MCP Server.
 
-This module creates the FastMCP singleton with lifespan management for database connections.
+This module creates the MCP Server singleton with lifespan management for database connections.
 """
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import Server
 from contextlib import asynccontextmanager
 from todo_mcp.database import database_lifespan
 
 
 @asynccontextmanager
-async def app_lifespan():
+async def app_lifespan(app):
     """
     Application lifespan context manager.
 
@@ -18,16 +18,16 @@ async def app_lifespan():
     - Startup: Initialize database engine
     - Shutdown: Dispose database engine
 
+    Args:
+        app: Starlette application instance
+
     Usage:
-        This is automatically called by FastMCP when the server starts/stops.
+        This is automatically called when the server starts/stops.
     """
     async with database_lifespan():
         yield
 
 
-# Create FastMCP singleton instance
+# Create Official MCP SDK Server instance
 # This instance is imported by tool modules and server.py
-mcp = FastMCP(
-    name="todo_mcp",
-    # Note: FastMCP doesn't accept version parameter, only name and dependencies
-)
+mcp = Server(name="todo_mcp")

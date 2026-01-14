@@ -1,0 +1,203 @@
+openapi: 3.1.0
+info:
+  title: ChatKit Backend API
+  version: 1.0.0
+  description: AI-powered chatbot backend with natural language task management via MCP tools
+
+servers:
+  - url: http://localhost:8000
+    description: Development server
+  - url: https://api.todo-app.com
+    description: Production server
+
+paths:
+  /api/chatkit/chat:
+    post:
+      operationId: chatkit_send_message
+      summary: Send chat message and receive streaming response
+      description: |
+        Send a user message to the AI assistant. The assistant processes the message,
+        invokes MCP tools as needed (add_task, list_tasks, complete_task, update_task, delete_task),
+        and returns a streaming response via Server-Sent Events (SSE).
+
+        **Authentication**: Requires Bearer JWT token from Better Auth.
+        **Streaming**: Response streamed as text/event-stream (SSE format).
+        **User Isolation**: User can only access their own conversation.
+
+      security:
+        - BearerAuth: []
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - message
+              properties:
+                message:
+                  type: string
+                  maxLength: 10000
+                  description: User message content (truncated at 10,000 characters with warning if exceeded)
+                  example: "Add a task to buy groceries"
+                thread_id:
+                  type: string
+                  format: uuid
+                  description: |
+                    Optional conversation thread ID for continuing existing conversation.
+                    If omitted, uses user's active conversation (or creates new one if none exists).
+                  example: "550e8400-e29b-41d4-a716-446655440000"
+
+      responses:
+        '200':
+          description: Streaming assistant response via Server-Sent Events (SSE)
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  SSE stream with events:
+                  - thread.message.delta: Assistant message chunks
+                  - tool.call.start: MCP tool invocation started
+                  - tool.call.result: MCP tool execution result
+                  - thread.message.completed: Assistant message complete
+                  - error: Error occurred during processing
+
+                  See chatkit-sse-events.md for detailed event schemas.
+
+        '400':
+          description: Bad request - invalid message content or parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Message content exceeds maximum length"
+                code: "MESSAGE_TOO_LONG"
+                status: 400
+                request_id: "770e8400-e29b-41d4-a716-446655440002"
+
+        '401':
+          description: Unauthorized - invalid or missing JWT token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Could not validate credentials"
+                code: "INVALID_TOKEN"
+                status: 401
+                request_id: "770e8400-e29b-41d4-a716-446655440003"
+
+        '403':
+          description: Forbidden - attempting to access another user's conversation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Not authorized to access this conversation"
+                code: "CONVERSATION_ACCESS_DENIED"
+                status: 403
+                request_id: "770e8400-e29b-41d4-a716-446655440004"
+
+        '500':
+          description: Internal server error (with correlation ID for support)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Unable to process your request at this time. Please try again later. Reference ID: 770e8400-e29b-41d4-a716-446655440005"
+                code: "OPENAI_API_ERROR"
+                status: 500
+                request_id: "770e8400-e29b-41d4-a716-446655440005"
+
+  /api/chatkit/conversation:
+    delete:
+      operationId: chatkit_reset_conversation
+      summary: Reset conversation (soft delete)
+      description: |
+        Soft-deletes the authenticated user's active conversation and all associated messages.
+        Next message sent will create a new conversation.
+
+        **Effect**: Sets deleted_at timestamp on conversation and all messages.
+        **Idempotent**: Returns 404 if no active conversation exists (safe to call multiple times).
+
+      security:
+        - BearerAuth: []
+
+      responses:
+        '204':
+          description: Conversation deleted successfully (no content returned)
+
+        '401':
+          description: Unauthorized - invalid or missing JWT token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+        '404':
+          description: No active conversation found for user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "No active conversation found"
+                code: "CONVERSATION_NOT_FOUND"
+                status: 404
+                request_id: "770e8400-e29b-41d4-a716-446655440006"
+
+        '500':
+          description: Internal server error (database operation failed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Better Auth JWT token from Authorization header (obtained via /api/auth/login)
+
+  schemas:
+    Error:
+      type: object
+      required:
+        - error
+        - code
+        - status
+        - request_id
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+          example: "Could not validate credentials"
+        code:
+          type: string
+          description: Machine-readable error code for programmatic handling
+          enum:
+            - INVALID_TOKEN
+            - MESSAGE_TOO_LONG
+            - CONVERSATION_ACCESS_DENIED
+            - CONVERSATION_NOT_FOUND
+            - MCP_CONNECTION_FAILED
+            - OPENAI_RATE_LIMIT
+            - OPENAI_API_ERROR
+            - DATABASE_ERROR
+          example: "INVALID_TOKEN"
+        status:
+          type: integer
+          description: HTTP status code
+          example: 401
+        request_id:
+          type: string
+          format: uuid
+          description: Correlation ID for debugging (include in support requests)
+          example: "550e8400-e29b-41d4-a716-446655440000"
