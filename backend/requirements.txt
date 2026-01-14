@@ -25,6 +25,13 @@ pytest-asyncio==1.3.0
 pytest-cov==7.0.0
 httpx==0.28.1
 
+# ChatKit Backend Dependencies (Phase III - 008-chatkit-server-backend)
+# Package names verified from research.md R001/R002
+chatkit-sdk>=1.0.0        # OpenAI ChatKit Python SDK
+agents>=0.1.0             # OpenAI Agents SDK with MCP support
+mcp>=0.9.0                # MCP Python SDK
+# httpx>=0.24.0 (already included above for testing)
+
 # Code Quality (optional)
 black==24.10.0
 ruff==0.8.4

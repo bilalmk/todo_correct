@@ -29,9 +29,9 @@ class Task(SQLModel, table=True):
         sa_column=Column(BigInteger, primary_key=True, autoincrement=True),
     )
 
-    # Foreign key to user table with ON DELETE CASCADE
+    # Foreign key to user table (uuid column) with ON DELETE CASCADE
     user_id: UUID = Field(
-        foreign_key="user.id",
+        foreign_key="user.uuid",
         nullable=False,
         index=True,
         ondelete="CASCADE",

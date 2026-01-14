@@ -24,6 +24,10 @@ dependencies = [
     "pytest-cov>=7.0.0",
     "aiosqlite>=0.22.1",
     "python-dateutil>=2.9.0",
+    # ChatKit Backend Dependencies (Phase III - 008-chatkit-server-backend)
+    "openai-chatkit>=1.0.0",
+    "openai-agents>=0.6.0",  # OpenAI Agents SDK (not the RL 'agents' package)
+    "mcp>=0.9.0",
 ]
 
 [project.optional-dependencies]

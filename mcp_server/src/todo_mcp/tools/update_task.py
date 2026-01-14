@@ -7,40 +7,62 @@ Updates task title and/or description for the specified user.
 from datetime import datetime, timezone
 from sqlmodel import select
 
-from todo_mcp.app import mcp
 from todo_mcp.models.inputs import UpdateTaskInput
 from todo_mcp.utils.logging import log_tool_invocation
 from todo_mcp.utils.errors import task_not_found_error, database_error
 from todo_mcp.utils.responses import format_task_result
 from todo_mcp.database import get_db_session
+from todo_mcp.tools_registry import register_tool
 
 # Import Task model from backend via shared module
 from todo_mcp.shared_models import Task
 
 
-@mcp.tool(name="todo_update_task")
+async def update_task_handler(arguments: dict) -> str:
+    """Handler function that accepts raw arguments dict."""
+    params = UpdateTaskInput(**arguments)
+    return await update_task(params)
+
+
 async def update_task(params: UpdateTaskInput) -> str:
     """
-    Update task title and/or description.
+    Update task fields including title, description, priority, due dates, reminders, and recurrence.
 
-    This tool allows AI chatbot users to modify existing tasks by saying
-    "Change the title of my dentist task to 'Call dentist at 3pm'" and have changes persisted.
+    This tool allows AI chatbot users to modify existing tasks via natural language,
+    including advanced fields like priorities, due dates, and recurring patterns.
 
     Args:
-        params: UpdateTaskInput containing user_id (UUID), task_id (positive integer),
-                and at least one of title (1-255 chars) or description (max 10k chars)
+        params: UpdateTaskInput containing:
+            - user_id (UUID): User identifier
+            - task_id (int): Task ID to update
+            - title (str, optional): New title (1-255 chars)
+            - description (str, optional): New description (max 10k chars)
+            - priority (str, optional): New priority ('low', 'medium', 'high')
+            - due_date (datetime, optional): New due date (ISO 8601 format)
+            - reminder_at (datetime, optional): New reminder time (ISO 8601 format)
+            - recurrence_pattern (str, optional): New recurrence ('daily', 'weekly', 'monthly', 'custom')
+            - recurrence_config (dict, optional): New recurrence config (iCalendar RRULE format)
 
     Returns:
-        JSON string with task_id, status="updated", and title
+        JSON string with task_id, status="updated", and all updated fields
 
-    Example:
+    Examples:
         User says: "Update my grocery task to include vegetables"
         AI calls: todo_update_task(user_id="550e8400...", task_id=42, description="Milk, eggs, bread, vegetables")
         Returns: {"task_id": 42, "status": "updated", "title": "Buy groceries"}
 
+        User says: "Change the FastAPI project deadline to February 15th and mark it as urgent"
+        AI calls: todo_update_task(
+            user_id="550e8400...",
+            task_id=43,
+            due_date="2026-02-15T23:59:59Z",
+            priority="high"
+        )
+        Returns: {"task_id": 43, "status": "updated", "due_date": "2026-02-15T23:59:59Z", "priority": "high"}
+
     Raises:
-        ValueError: If both title and description are None (validated by Pydantic)
-        Exception: If database connection fails
+        ValueError: If no update fields provided (validated by Pydantic)
+        Exception: If database connection fails or task not found
     """
     start_time = datetime.now(timezone.utc)
     tool_name = "todo_update_task"
@@ -75,6 +97,16 @@ async def update_task(params: UpdateTaskInput) -> str:
                 task.title = params.title
             if params.description is not None:
                 task.description = params.description
+            if params.priority is not None:
+                task.priority = params.priority
+            if params.due_date is not None:
+                task.due_date = params.due_date
+            if params.reminder_at is not None:
+                task.reminder_at = params.reminder_at
+            if params.recurrence_pattern is not None:
+                task.recurrence_pattern = params.recurrence_pattern
+            if params.recurrence_config is not None:
+                task.recurrence_config = params.recurrence_config
 
             task.updated_at = datetime.now(timezone.utc)
             session.add(task)
@@ -108,3 +140,7 @@ async def update_task(params: UpdateTaskInput) -> str:
             duration_ms=duration_ms,
         )
         return database_error()
+
+
+# Register the tool handler
+register_tool("todo_update_task", update_task_handler)
