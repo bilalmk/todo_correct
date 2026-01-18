@@ -31,11 +31,14 @@ import { TaskList } from "@/components/dashboard/TaskList";
 import { TaskModal } from "@/components/dashboard/TaskModal";
 import { TaskStats } from "@/components/dashboard/TaskStats"; // T056
 import { Pagination } from "@/components/Pagination"; // T030
+import { FloatingChatButton } from "@/components/chat/FloatingChatButton"; // T015 [US1]
+import { ChatBotPopup } from "@/components/chat/ChatBotPopup"; // T015 [US1]
 import { useTasks } from "@/contexts/TaskContext";
 import { useFilter } from "@/contexts/FilterContext"; // T032
 import { TaskFormData } from "@/lib/validation-schemas";
 import { authClient } from "@/lib/auth-client";
 import { getUserUuidFromSession } from "@/lib/get-user-uuid";
+import { onTaskEvent } from "@/lib/events/task-events"; // T046 [US2]
 
 export default function DashboardPage() {
   const { tasks, addTask, refreshTasks, totalTasks, totalPages: taskTotalPages, currentPage: taskCurrentPage, pageLimit: taskPageLimit } = useTasks(); // T056: Added tasks for TaskStats
@@ -62,6 +65,7 @@ export default function DashboardPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [isLoadingSession, setIsLoadingSession] = useState(true);
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false); // T015 [US1]: Chatbot popup state
   const router = useRouter();
   const searchParams = useSearchParams(); // T032
 
@@ -158,6 +162,21 @@ export default function DashboardPage() {
     // Update URL without triggering a full page reload
     router.replace(newUrl, { scroll: false });
   }, [status, priority, selectedTags, searchQuery, sortBy, sortOrder, pagination.page, pagination.limit]);
+
+  // T046 [US2]: Listen for task events from chatbot and refresh task list
+  useEffect(() => {
+    const cleanup = onTaskEvent((detail) => {
+      console.log('[Dashboard] Task event received:', detail);
+
+      // Only refresh if event came from chatbot (avoid refresh loop)
+      if (detail.metadata?.source === 'chatbot') {
+        console.log('[Dashboard] Refreshing tasks due to chatbot operation');
+        refreshTasks(toBackendQuery());
+      }
+    });
+
+    return cleanup; // Cleanup event listener on unmount
+  }, [refreshTasks, toBackendQuery]);
 
   const handleCreateTask = async (data: TaskFormData) => {
     if (!userId) {
@@ -284,6 +303,25 @@ export default function DashboardPage() {
         onSubmit={handleCreateTask}
         isLoading={isSubmitting}
       />
+
+      {/* T015 [US1]: Floating Chat Button (FAB) - triggers chatbot popup */}
+      <FloatingChatButton onClick={() => setIsChatbotOpen(true)} />
+
+      {/* T015 [US1]: Chatbot Popup Overlay */}
+      <ChatBotPopup
+        open={isChatbotOpen}
+        onOpenChange={setIsChatbotOpen}
+      >
+        {/* Placeholder for ChatInterface component (Phase 5: US4) */}
+        <div className="flex items-center justify-center h-full p-8 text-center text-gray-500">
+          <div>
+            <p className="mb-2 font-medium">Chat Interface Coming Soon</p>
+            <p className="text-sm">
+              The AI chatbot interface will be implemented in Phase 5 (User Story 4).
+            </p>
+          </div>
+        </div>
+      </ChatBotPopup>
     </div>
   );
 }

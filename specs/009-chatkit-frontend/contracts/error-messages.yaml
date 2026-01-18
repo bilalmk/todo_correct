@@ -1,0 +1,106 @@
+# ChatBot Error Messages Specification
+# Source of truth for FR-017, FR-018, FR-018a
+# Referenced by: spec.md, tasks.md (T070-T077)
+
+error_types:
+  NetworkError:
+    code: "NETWORK_ERROR"
+    http_status: null  # Client-side connection failure, no HTTP response
+    user_message_during_retry: "Connection lost. Retrying..."
+    user_message_after_retry_exhaustion: "Unable to connect. Please check your internet connection and try again."
+    retry_strategy:
+      auto_retry: true
+      max_attempts: 3
+      backoff: [1000, 2000, 4000]  # milliseconds
+      show_manual_retry_button: true
+    ui_actions:
+      - Disable message input during retry
+      - Show retry count indicator
+      - Show manual "Retry" button after exhaustion
+      - Allow user to dismiss and close chatbot
+
+  BackendUnavailable:
+    code: "BACKEND_UNAVAILABLE"
+    http_status: [502, 503]
+    user_message: "Service temporarily unavailable. Please try again in a moment."
+    retry_strategy:
+      auto_retry: true
+      max_attempts: 3
+      backoff: [1000, 2000, 4000]
+      show_manual_retry_button: true
+    ui_actions:
+      - Disable message input until retry succeeds
+      - Show manual "Retry" button after exhaustion
+
+  AuthenticationError:
+    code: "AUTHENTICATION_ERROR"
+    http_status: 401
+    user_message: "Your session has expired. Please sign in again."
+    retry_strategy:
+      auto_retry: false
+      redirect_after: 3000  # 3 seconds
+      redirect_url: "/auth/signin"
+    ui_actions:
+      - Show countdown timer (3, 2, 1...)
+      - Automatic redirect to /auth/signin
+      - Preserve conversation context in sessionStorage for post-login restoration
+
+  TimeoutError:
+    code: "TIMEOUT_ERROR"
+    http_status: null  # Client-side timeout, request exceeds threshold
+    timeout_threshold: 10000  # 10 seconds
+    user_message: "Request is taking longer than expected. You can wait or cancel and try again."
+    retry_strategy:
+      auto_retry: false
+      show_cancel_button: true
+    ui_actions:
+      - Show timeout warning after 10 seconds
+      - Provide "Cancel" button to abort request
+      - Provide "Keep Waiting" option
+      - If canceled, allow manual retry
+
+  RateLimitError:
+    code: "RATE_LIMIT_ERROR"
+    http_status: 429
+    user_message: "Too many requests. Please wait [countdown] seconds before sending more messages."
+    rate_limit: 20  # requests per minute
+    retry_strategy:
+      auto_retry: false
+      show_countdown_timer: true
+      countdown_source: "Retry-After header (if available) OR client-side calculation (60 seconds from last request)"
+    ui_actions:
+      - Disable message input until countdown reaches zero
+      - Show countdown timer in seconds
+      - Re-enable input when timer expires
+
+  UnknownError:
+    code: "UNKNOWN_ERROR"
+    http_status: [400, 404, 500, "*"]  # Catch-all for unhandled status codes
+    user_message: "Something went wrong. Please try again or contact support if the problem persists."
+    retry_strategy:
+      auto_retry: false
+      show_manual_retry_button: true
+    ui_actions:
+      - Show manual "Retry" button
+      - Provide "Contact Support" link
+      - Log full error details (stack trace, request ID) for debugging
+
+# Logging Requirements (FR-020)
+logging:
+  all_errors:
+    - log_level: "error"
+    - fields:
+        - correlation_id
+        - user_id
+        - error_code
+        - http_status
+        - error_message
+        - stack_trace
+        - request_url
+        - request_method
+        - timestamp
+    - sanitization:
+        - Truncate message content to first 50 characters + "[...]"
+        - Never log JWT tokens (redact as "[REDACTED_TOKEN]")
+        - Never log API keys (redact as "[REDACTED_API_KEY]")
+        - Sanitize PII fields (email, phone → "[REDACTED_PII]")
