@@ -33,6 +33,7 @@ import { TaskStats } from "@/components/dashboard/TaskStats"; // T056
 import { Pagination } from "@/components/Pagination"; // T030
 import { FloatingChatButton } from "@/components/chat/FloatingChatButton"; // T015 [US1]
 import { ChatBotPopup } from "@/components/chat/ChatBotPopup"; // T015 [US1]
+import { ChatInterface } from "@/components/chat/ChatInterface"; // T036 [US4]
 import { useTasks } from "@/contexts/TaskContext";
 import { useFilter } from "@/contexts/FilterContext"; // T032
 import { TaskFormData } from "@/lib/validation-schemas";
@@ -307,20 +308,12 @@ export default function DashboardPage() {
       {/* T015 [US1]: Floating Chat Button (FAB) - triggers chatbot popup */}
       <FloatingChatButton onClick={() => setIsChatbotOpen(true)} />
 
-      {/* T015 [US1]: Chatbot Popup Overlay */}
+      {/* T015 [US1], T036 [US4]: Chatbot Popup Overlay with ChatInterface */}
       <ChatBotPopup
         open={isChatbotOpen}
         onOpenChange={setIsChatbotOpen}
       >
-        {/* Placeholder for ChatInterface component (Phase 5: US4) */}
-        <div className="flex items-center justify-center h-full p-8 text-center text-gray-500">
-          <div>
-            <p className="mb-2 font-medium">Chat Interface Coming Soon</p>
-            <p className="text-sm">
-              The AI chatbot interface will be implemented in Phase 5 (User Story 4).
-            </p>
-          </div>
-        </div>
+        <ChatInterface />
       </ChatBotPopup>
     </div>
   );

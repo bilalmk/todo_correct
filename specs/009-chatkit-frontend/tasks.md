@@ -219,14 +219,14 @@ description: "Implementation tasks for ChatKit Frontend Chatbot Overlay"
 
 ### Implementation for User Story 4
 
-- [ ] T033 [P] [US4] Create ChatInterface component in frontend/src/components/chat/ChatInterface.tsx (useChatKit hook integration)
-- [ ] T034 [P] [US4] Create MessageList component in frontend/src/components/chat/MessageList.tsx (render messages with streaming state)
-- [ ] T035 [P] [US4] Create MessageInput component in frontend/src/components/chat/MessageInput.tsx (send message form)
-- [ ] T036 [US4] Integrate ChatInterface into ChatBotPopup component in frontend/src/components/chat/ChatBotPopup.tsx
-- [ ] T037 [US4] Implement SSE streaming proxy in frontend/src/app/api/chatkit/route.ts (preserve Content-Type: text/event-stream)
-- [ ] T038 [US4] Add typing indicator UI in MessageList component (animate-pulse during isStreaming)
-- [ ] T039 [US4] Implement exponential backoff retry logic (1s, 2s, 4s) in custom fetch interceptor within frontend/src/lib/chatkit-config.ts (see T026) using onError callback that tracks retry count and applies delays: 1s (retry 1), 2s (retry 2), 4s (retry 3), then throw error to trigger manual retry UI
-- [ ] T040 [US4] Add manual "Retry" button UI in ChatInterface for failed streams
+- [X] T033 [P] [US4] Create ChatInterface component in frontend/src/components/chat/ChatInterface.tsx (useChatKit hook integration) ✅ COMPLETE (custom implementation with fetch + SSE streaming)
+- [X] T034 [P] [US4] Create MessageList component in frontend/src/components/chat/MessageList.tsx (render messages with streaming state) ✅ COMPLETE (includes T038 typing indicator)
+- [X] T035 [P] [US4] Create MessageInput component in frontend/src/components/chat/MessageInput.tsx (send message form) ✅ COMPLETE
+- [X] T036 [US4] Integrate ChatInterface into ChatBotPopup component in frontend/src/components/chat/ChatBotPopup.tsx ✅ COMPLETE (integrated in dashboard/page.tsx)
+- [X] T037 [US4] Implement SSE streaming proxy in frontend/src/app/api/chatkit/route.ts (preserve Content-Type: text/event-stream) ✅ COMPLETE (already done in T007)
+- [X] T038 [US4] Add typing indicator UI in MessageList component (animate-pulse during isStreaming) ✅ COMPLETE (included in MessageList.tsx)
+- [X] T039 [US4] Implement exponential backoff retry logic (1s, 2s, 4s) in custom fetch interceptor within frontend/src/lib/chatkit-config.ts (see T026) using onError callback that tracks retry count and applies delays: 1s (retry 1), 2s (retry 2), 4s (retry 3), then throw error to trigger manual retry UI ✅ COMPLETE (implemented in ChatInterface.tsx sendMessage function)
+- [X] T040 [US4] Add manual "Retry" button UI in ChatInterface for failed streams ✅ COMPLETE (error banner with retry button)
 
 ### Unit Tests for User Story 4
 
@@ -258,11 +258,11 @@ description: "Implementation tasks for ChatKit Frontend Chatbot Overlay"
 
 ### Implementation for User Story 2
 
-- [ ] T046 [US2] Add TaskEvent listener in frontend/src/app/dashboard/page.tsx (useEffect with onTaskEvent callback)
-- [ ] T047 [US2] Implement dashboard refresh logic on TaskEvent in dashboard page (call refreshTasks from TaskContext)
-- [ ] T048 [US2] Add tool.call.result event handling in ChatInterface (detect task-related tools: add_task, complete_task, delete_task, update_task)
-- [ ] T049 [US2] Emit TaskEvent from ChatInterface on successful tool.call.result (parse tool_name from MCP response, emit appropriate event type: task.created, task.updated, task.completed, task.deleted)
-- [ ] T050 [US2] Add success confirmation UI in MessageList (show inline checkmark icon within the AI message bubble after successful task operation, no separate toast notification)
+- [X] T046 [US2] Add TaskEvent listener in frontend/src/app/dashboard/page.tsx (useEffect with onTaskEvent callback) ✅ COMPLETE (already implemented in Phase 3 - T015)
+- [X] T047 [US2] Implement dashboard refresh logic on TaskEvent in dashboard page (call refreshTasks from TaskContext) ✅ COMPLETE (already implemented in Phase 3 - T015)
+- [X] T048 [US2] Add tool.call.result event handling in ChatInterface (detect task-related tools: add_task, complete_task, delete_task, update_task) ✅ COMPLETE (implemented in ChatInterface.tsx)
+- [X] T049 [US2] Emit TaskEvent from ChatInterface on successful tool.call.result (parse tool_name from MCP response, emit appropriate event type: task.created, task.updated, task.completed, task.deleted) ✅ COMPLETE (implemented in ChatInterface.tsx using createTaskEventFromTool)
+- [X] T050 [US2] Add success confirmation UI in MessageList (show inline checkmark icon within the AI message bubble after successful task operation, no separate toast notification) ✅ COMPLETE (implemented in MessageList.tsx - tool call indicators)
 - [ ] T051 [US2] Test real-time sync with all task operations (create, update, complete, delete)
 
 **Checkpoint**: Task management via chatbot fully functional with real-time dashboard sync
