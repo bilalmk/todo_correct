@@ -1,13 +1,14 @@
 /**
  * Floating Chat Button (FAB) Component
  * Feature: 009-chatkit-frontend
- * Task: T013 [US1]
+ * Task: T013 [US1], T068 [US6]
  *
  * Purpose: Floating action button to trigger chatbot popup overlay
  * - Fixed position in bottom-right corner of dashboard
  * - Z-index z-40 (below popup overlay at z-50)
  * - Accessible with aria-label and keyboard support
  * - Orange/coral theme matching dashboard design (from 006-ui-enhancement)
+ * - T068: Respects prefers-reduced-motion for accessibility
  *
  * Usage:
  * ```tsx
@@ -17,6 +18,7 @@
 
 'use client';
 
+import { useMemo } from 'react';
 import { MessageSquare } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -26,6 +28,12 @@ interface FloatingChatButtonProps {
 }
 
 export function FloatingChatButton({ onClick, className = '' }: FloatingChatButtonProps) {
+  // T068: Detect prefers-reduced-motion for accessibility
+  const prefersReducedMotion = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }, []);
+
   return (
     <motion.button
       onClick={onClick}
@@ -46,16 +54,20 @@ export function FloatingChatButton({ onClick, className = '' }: FloatingChatButt
       aria-label="Open chatbot assistant"
       role="button"
       tabIndex={0}
-      initial={{ scale: 0.8, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      exit={{ scale: 0.8, opacity: 0 }}
-      transition={{
-        type: 'spring',
-        stiffness: 260,
-        damping: 20,
-      }}
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
+      initial={prefersReducedMotion ? false : { scale: 0.8, opacity: 0 }}
+      animate={prefersReducedMotion ? false : { scale: 1, opacity: 1 }}
+      exit={prefersReducedMotion ? false : { scale: 0.8, opacity: 0 }}
+      transition={
+        prefersReducedMotion
+          ? { duration: 0 }
+          : {
+              type: 'spring',
+              stiffness: 260,
+              damping: 20,
+            }
+      }
+      whileHover={prefersReducedMotion ? {} : { scale: 1.05 }}
+      whileTap={prefersReducedMotion ? {} : { scale: 0.95 }}
     >
       {/* Icon */}
       <MessageSquare

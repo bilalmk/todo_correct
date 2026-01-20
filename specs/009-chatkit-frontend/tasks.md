@@ -317,11 +317,11 @@ description: "Implementation tasks for ChatKit Frontend Chatbot Overlay"
 
 ### Implementation for User Story 6
 
-- [ ] T065 [US6] Fine-tune Framer Motion animation timing in frontend/src/components/chat/ChatBotPopup.tsx (duration: 0.3s = 300ms max per FR-012, target ~250-280ms for smooth feel while staying under threshold)
-- [ ] T066 [US6] Add AnimatePresence wrapper in ChatBotPopup for exit animations
-- [ ] T067 [US6] Implement backdrop fade animation in ChatBotPopup (sync with popup animation)
-- [ ] T068 [US6] Add animation preferences detection (respect prefers-reduced-motion)
-- [ ] T069 [US6] Test animation performance with DevTools Performance tab (verify <300ms)
+- [X] T065 [US6] Fine-tune Framer Motion animation timing in frontend/src/components/chat/ChatBotPopup.tsx (duration: 0.3s = 300ms max per FR-012, target ~250-280ms for smooth feel while staying under threshold) ✅ COMPLETE (250ms content, 200ms backdrop - already implemented in Phase 3)
+- [X] T066 [US6] Add AnimatePresence wrapper in ChatBotPopup for exit animations ✅ COMPLETE (AnimatePresence with mode="wait" already implemented in Phase 3)
+- [X] T067 [US6] Implement backdrop fade animation in ChatBotPopup (sync with popup animation) ✅ COMPLETE (motion.div backdrop with 200ms fade already implemented in Phase 3)
+- [X] T068 [US6] Add animation preferences detection (respect prefers-reduced-motion) ✅ COMPLETE (prefers-reduced-motion detection in ChatBotPopup and FloatingChatButton with duration: 0 fallback)
+- [ ] T069 [US6] Test animation performance with DevTools Performance tab (verify <300ms) (MANUAL TEST: Requires user to test with browser DevTools)
 
 **Checkpoint**: All animations polished and performant
 

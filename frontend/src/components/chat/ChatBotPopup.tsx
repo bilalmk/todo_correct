@@ -1,7 +1,7 @@
 /**
  * ChatBot Popup Overlay Component
  * Feature: 009-chatkit-frontend
- * Task: T014, T016, T017, T018 [US1]
+ * Task: T014, T016, T017, T018 [US1], T065-T068 [US6]
  *
  * Purpose: Modal dialog wrapper for chatbot interface
  * - Uses shadcn/ui Dialog for accessibility
@@ -9,6 +9,7 @@
  * - Bottom-right positioning with backdrop
  * - Framer Motion animations (<300ms per spec.md FR-012)
  * - Z-index z-50 (above FAB at z-40, below toasts at z-100)
+ * - T068: Respects prefers-reduced-motion for accessibility
  *
  * Architecture:
  * - Dialog blocks background interaction (modal=true)
@@ -27,9 +28,9 @@
 
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useMemo } from 'react';
 import { X } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Transition } from 'framer-motion';
 import {
   Dialog,
   DialogContent,
@@ -58,6 +59,26 @@ export function ChatBotPopup({
   children,
   title = 'AI Assistant',
 }: ChatBotPopupProps) {
+  // T068: Detect prefers-reduced-motion for accessibility
+  const prefersReducedMotion = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }, []);
+
+  // T065, T068: Animation configuration with reduced motion support
+  const contentTransition: Transition = prefersReducedMotion
+    ? { duration: 0 } // No animation if user prefers reduced motion
+    : {
+        duration: 0.25, // 250ms (T065: optimized for smooth feel under 300ms threshold)
+        ease: 'easeOut',
+      };
+
+  const backdropTransition: Transition = prefersReducedMotion
+    ? { duration: 0 } // No animation if user prefers reduced motion
+    : {
+        duration: 0.2, // 200ms (T067: backdrop synced with content)
+      };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* Custom DialogContent with fixed positioning */}
@@ -121,18 +142,15 @@ export function ChatBotPopup({
 
         {/* Content area - ChatInterface will be rendered here */}
         <div className="flex-1 h-[calc(100%-4rem)] overflow-hidden">
-          {/* T016: Animation wrapper */}
+          {/* T016, T066: AnimatePresence wrapper for smooth enter/exit animations */}
           <AnimatePresence mode="wait">
             {open && (
               <motion.div
                 className="h-full"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                transition={{
-                  duration: 0.25, // 250ms (below 300ms threshold per FR-012)
-                  ease: 'easeOut',
-                }}
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 20 }}
+                animate={prefersReducedMotion ? false : { opacity: 1, y: 0 }}
+                exit={prefersReducedMotion ? false : { opacity: 0, y: 20 }}
+                transition={contentTransition}
               >
                 {children}
               </motion.div>
@@ -141,14 +159,14 @@ export function ChatBotPopup({
         </div>
       </DialogContent>
 
-      {/* Custom backdrop with fade animation */}
+      {/* T067: Custom backdrop with fade animation (synced with content) */}
       {open && (
         <motion.div
           className="fixed inset-0 bg-black/40 z-40"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
+          initial={prefersReducedMotion ? false : { opacity: 0 }}
+          animate={prefersReducedMotion ? false : { opacity: 1 }}
+          exit={prefersReducedMotion ? false : { opacity: 0 }}
+          transition={backdropTransition}
           onClick={() => onOpenChange(false)}
           aria-hidden="true"
         />
