@@ -354,11 +354,11 @@ description: "Implementation tasks for ChatKit Frontend Chatbot Overlay"
 
 - [ ] T078 [P] Add structured logging to ChatInterface per FR-020 requirements (correlation IDs, message summaries first 50 chars with "[...]" truncation, performance metrics: time to first token, total response time)
 - [ ] T078a [P] Create integration tests for correlation ID propagation in frontend/tests/integration/logging/correlation.test.ts (verify correlation ID flows from frontend → API proxy → backend response headers, test that same correlation ID appears in all log entries for a single request)
-- [ ] T078b [P] Create log sanitization utility in frontend/src/lib/logging/sanitize.ts per FR-020 requirements: (1) Truncate task content to first 50 characters with "[...]" suffix, (2) Redact JWT tokens (replace with "[REDACTED_TOKEN]"), (3) Redact PII fields (email, phone, address with "[REDACTED_PII]"), (4) Never log full API keys (show only first 4 and last 4 characters like "sk-ab...xyz"), (5) Export sanitize(obj: unknown): unknown function for use in all logging calls
-- [ ] T078c [P] Create unit tests for log sanitization in frontend/tests/unit/lib/logging/sanitize.test.ts (test truncation, token redaction, PII redaction, API key masking, nested object sanitization)
-- [ ] T079 [P] Add responsive design for mobile screens (<768px) in ChatBotPopup (full-screen modal: width 100vw, height 100vh; extends spec.md Technical Constraints with mobile-specific full-screen behavior)
+- [x] T078b [P] Create log sanitization utility in frontend/src/lib/logging/sanitize.ts per FR-020 requirements: (1) Truncate task content to first 50 characters with "[...]" suffix, (2) Redact JWT tokens (replace with "[REDACTED_TOKEN]"), (3) Redact PII fields (email, phone, address with "[REDACTED_PII]"), (4) Never log full API keys (show only first 4 and last 4 characters like "sk-ab...xyz"), (5) Export sanitize(obj: unknown): unknown function for use in all logging calls
+- [x] T078c [P] Create unit tests for log sanitization in frontend/tests/unit/lib/logging/sanitize.test.ts (test truncation, token redaction, PII redaction, API key masking, nested object sanitization)
+- [x] T079 [P] Add responsive design for mobile screens (<768px) in ChatBotPopup (full-screen modal: width 100vw, height 100vh; extends spec.md Technical Constraints with mobile-specific full-screen behavior)
 - [ ] T084 Performance optimization: Throttle SSE event processing if >50 events/second (use requestAnimationFrame or debounce)
-- [ ] T085 [P] Security audit: Verify no sensitive data logged in console (sanitize PII, task content beyond 50 chars, never log JWT tokens or API keys)
+- [x] T085 [P] Security audit: Verify no sensitive data logged in console (sanitize PII, task content beyond 50 chars, never log JWT tokens or API keys)
 - [ ] T086 Run quickstart.md validation (verify all setup steps work for new developer)
 
 ### Accessibility Enhancements (Strongly Recommended)

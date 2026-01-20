@@ -1,12 +1,12 @@
 /**
  * ChatBot Popup Overlay Component
  * Feature: 009-chatkit-frontend
- * Task: T014, T016, T017, T018 [US1], T065-T068 [US6]
+ * Task: T014, T016, T017, T018 [US1], T065-T068 [US6], T079 [Phase 10]
  *
  * Purpose: Modal dialog wrapper for chatbot interface
  * - Uses shadcn/ui Dialog for accessibility
- * - Fixed dimensions: 400px × 600px (per spec.md FR-002)
- * - Bottom-right positioning with backdrop
+ * - Desktop: 400px × 600px, bottom-right positioning (per spec.md FR-002)
+ * - Mobile: 100vw × 100vh, full-screen (T079: responsive design)
  * - Framer Motion animations (<300ms per spec.md FR-012)
  * - Z-index z-50 (above FAB at z-40, below toasts at z-100)
  * - T068: Respects prefers-reduced-motion for accessibility
@@ -15,7 +15,8 @@
  * - Dialog blocks background interaction (modal=true)
  * - Clicking backdrop closes popup (closeOnClickOutside=true)
  * - Escape key closes popup (closeOnEsc=true)
- * - Dashboard remains visible but dimmed
+ * - Dashboard remains visible but dimmed (desktop)
+ * - Full-screen takeover on mobile (<768px)
  *
  * Usage:
  * ```tsx
@@ -81,27 +82,35 @@ export function ChatBotPopup({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* Custom DialogContent with fixed positioning */}
+      {/* Custom DialogContent with responsive positioning (T079) */}
       <DialogContent
         className="
-          fixed bottom-4 right-4
-          w-[400px] h-[600px]
-          max-w-[calc(100vw-2rem)]
-          max-h-[calc(100vh-2rem)]
+          fixed
           p-0
           border-2 border-orange-200
           shadow-2xl shadow-orange-500/20
-          rounded-2xl
           overflow-hidden
           z-50
           bg-white dark:bg-gray-900
+
+          // Mobile (<768px): Full-screen modal (T079)
+          w-screen h-screen
+          bottom-0 right-0
+          rounded-none
+
+          // Desktop (>=768px): Bottom-right popup
+          md:w-[400px] md:h-[600px]
+          md:bottom-4 md:right-4
+          md:rounded-2xl
+          md:max-w-[calc(100vw-2rem)]
+          md:max-h-[calc(100vh-2rem)]
         "
         aria-describedby="chatbot-description"
-        // Override default Dialog positioning
+        // Override default Dialog positioning (T079: responsive)
         style={{
           position: 'fixed',
-          bottom: '1rem',
-          right: '1rem',
+          bottom: 0,
+          right: 0,
           top: 'auto',
           left: 'auto',
           transform: 'none',

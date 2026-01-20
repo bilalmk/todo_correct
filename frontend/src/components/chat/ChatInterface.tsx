@@ -33,6 +33,7 @@ import { Button } from '@/components/ui/button';
 import { RateLimitError, AuthError, TimeoutError } from './ErrorState';
 import { emitTaskEvent, createTaskEventFromTool } from '@/lib/events/task-events';
 import { getUserUuidFromSession } from '@/lib/get-user-uuid';
+import { sanitize } from '@/lib/logging/sanitize';
 
 interface ChatInterfaceProps {
   conversationId?: string;
@@ -298,7 +299,8 @@ export function ChatInterface({ conversationId: initialConversationId }: ChatInt
               console.log('[ChatInterface] Tool call started:', event.tool_name);
             } else if (event.type === 'tool.call.result') {
               // T048, T049: MCP tool completed - emit TaskEvent
-              console.log('[ChatInterface] Tool call result:', event);
+              // T085: Sanitize tool result before logging
+              console.log('[ChatInterface] Tool call result:', sanitize(event));
 
               const toolName = event.tool_name;
               const taskId = event.result?.task_id || event.result?.id;
@@ -325,9 +327,11 @@ export function ChatInterface({ conversationId: initialConversationId }: ChatInt
                     event.correlation_id
                   );
                   emitTaskEvent(taskEvent);
-                  console.log('[ChatInterface] TaskEvent emitted:', taskEvent);
+                  // T085: Sanitize task event before logging
+                  console.log('[ChatInterface] TaskEvent emitted:', sanitize(taskEvent));
                 } catch (err) {
-                  console.error('[ChatInterface] Failed to emit TaskEvent:', err);
+                  // T085: Sanitize error before logging
+                  console.error('[ChatInterface] Failed to emit TaskEvent:', sanitize(err));
                 }
               }
             } else if (event.type === 'thread.message.completed') {
@@ -359,7 +363,8 @@ export function ChatInterface({ conversationId: initialConversationId }: ChatInt
       setStreamingContent('');
       setRetryCount(0); // Reset retry count on success
     } catch (err: any) {
-      console.error('[ChatInterface] Send message error:', err);
+      // T085: Sanitize error before logging (may contain message content)
+      console.error('[ChatInterface] Send message error:', sanitize(err));
 
       // T075: Clear timeout on error
       if (timeoutRef.current) {

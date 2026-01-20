@@ -1,10 +1,12 @@
 /**
  * Floating Chat Button (FAB) Component
  * Feature: 009-chatkit-frontend
- * Task: T013 [US1], T068 [US6]
+ * Task: T013 [US1], T068 [US6], T079 [Phase 10]
  *
  * Purpose: Floating action button to trigger chatbot popup overlay
  * - Fixed position in bottom-right corner of dashboard
+ * - Mobile: 60px × 60px for better touch targets (T079)
+ * - Desktop: 56px × 56px standard FAB size
  * - Z-index z-40 (below popup overlay at z-50)
  * - Accessible with aria-label and keyboard support
  * - Orange/coral theme matching dashboard design (from 006-ui-enhancement)
@@ -39,7 +41,10 @@ export function FloatingChatButton({ onClick, className = '' }: FloatingChatButt
       onClick={onClick}
       className={`
         fixed bottom-6 right-6 z-40
-        h-14 w-14
+        // Mobile: Larger touch target (T079)
+        h-[60px] w-[60px]
+        // Desktop: Standard FAB size
+        md:h-14 md:w-14
         rounded-full
         bg-gradient-to-br from-orange-500 to-orange-600
         shadow-lg shadow-orange-500/50
