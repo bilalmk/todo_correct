@@ -1,7 +1,7 @@
 /**
  * Chat Interface Component
  * Feature: 009-chatkit-frontend
- * Task: T033, T037, T039, T040, T048, T049 [US4, US2], T056-T060 [US3]
+ * Task: T033, T037, T039, T040, T048, T049 [US4, US2], T056-T060 [US3], T072-T077 [Phase 9]
  *
  * Purpose: Main chat interface with SSE streaming and conversation history
  * - Send messages to backend via API proxy
@@ -13,7 +13,7 @@
  * - Load conversation history on mount (T057)
  * - Pagination support (T056, T058, T059)
  * - Loading states (T060)
- * - Error handling
+ * - Error handling (T072-T077)
  *
  * Architecture:
  * - Frontend → /api/chatkit (proxy) → Backend ChatKit endpoint
@@ -24,12 +24,13 @@
 
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { MessageList, ChatMessage } from './MessageList';
 import { MessageInput } from './MessageInput';
 import { Button } from '@/components/ui/button';
+import { RateLimitError, AuthError, TimeoutError } from './ErrorState';
 import { emitTaskEvent, createTaskEventFromTool } from '@/lib/events/task-events';
 import { getUserUuidFromSession } from '@/lib/get-user-uuid';
 
@@ -50,6 +51,14 @@ export function ChatInterface({ conversationId: initialConversationId }: ChatInt
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  // T072-T077: Enhanced error handling state
+  const [rateLimitCountdown, setRateLimitCountdown] = useState<number | null>(null);
+  const [authErrorCountdown, setAuthErrorCountdown] = useState<number | null>(null);
+  const [showTimeoutDialog, setShowTimeoutDialog] = useState(false);
+  const [isWaitingForTimeout, setIsWaitingForTimeout] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   /**
    * T057: Load conversation history on mount
@@ -129,14 +138,56 @@ export function ChatInterface({ conversationId: initialConversationId }: ChatInt
   }, [loadConversationHistory]);
 
   /**
+   * T072: Rate limit countdown timer
+   */
+  useEffect(() => {
+    if (rateLimitCountdown === null || rateLimitCountdown <= 0) return;
+
+    const timer = setInterval(() => {
+      setRateLimitCountdown((prev) => {
+        if (prev === null || prev <= 1) {
+          setError(null); // Clear error when countdown finishes
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [rateLimitCountdown]);
+
+  /**
+   * T074: Auth error countdown and redirect
+   */
+  useEffect(() => {
+    if (authErrorCountdown === null || authErrorCountdown <= 0) return;
+
+    const timer = setInterval(() => {
+      setAuthErrorCountdown((prev) => {
+        if (prev === null || prev <= 1) {
+          // Redirect to sign in
+          window.location.href = '/auth/signin';
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [authErrorCountdown]);
+
+  /**
    * T037: Send message and stream SSE response
    * T039: Exponential backoff retry (1s, 2s, 4s)
+   * T072-T077: Enhanced error handling
    */
   const sendMessage = useCallback(async (content: string, attempt = 0) => {
     try {
       setError(null);
       setIsStreaming(true);
       setStreamingContent('');
+      setShowTimeoutDialog(false);
+      setIsWaitingForTimeout(false);
 
       // Add user message to UI
       const userMessage: ChatMessage = {
@@ -154,6 +205,13 @@ export function ChatInterface({ conversationId: initialConversationId }: ChatInt
         throw new Error('Please log in to use the chatbot');
       }
 
+      // T075: Setup timeout handling (10 seconds)
+      abortControllerRef.current = new AbortController();
+      timeoutRef.current = setTimeout(() => {
+        setShowTimeoutDialog(true);
+        setIsWaitingForTimeout(true);
+      }, 10000);
+
       // Send request to API proxy
       const response = await fetch('/api/chatkit', {
         method: 'POST',
@@ -165,25 +223,34 @@ export function ChatInterface({ conversationId: initialConversationId }: ChatInt
           conversation_id: conversationId,
           user_id: userId,
         }),
+        signal: abortControllerRef.current.signal,
       });
+
+      // Clear timeout if response arrives
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      setShowTimeoutDialog(false);
+      setIsWaitingForTimeout(false);
 
       // Handle errors
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
 
+        // T074: Auth error with countdown
         if (response.status === 401) {
-          // Redirect to login
+          setAuthErrorCountdown(3);
           toast.error('Session expired. Redirecting to login...');
-          setTimeout(() => {
-            window.location.href = '/auth/signin';
-          }, 3000);
           return;
         }
 
+        // T072: Rate limit error with countdown
         if (response.status === 429) {
-          // Rate limit error
           const retryAfter = parseInt(response.headers.get('Retry-After') || '60');
-          throw new Error(`Rate limit exceeded. Please wait ${retryAfter} seconds.`);
+          setRateLimitCountdown(retryAfter);
+          toast.error(`Rate limit exceeded. Please wait ${retryAfter} seconds.`);
+          return;
         }
 
         throw new Error(errorData.error || `Request failed (${response.status})`);
@@ -276,13 +343,16 @@ export function ChatInterface({ conversationId: initialConversationId }: ChatInt
         }
       }
 
-      // Add assistant message to UI
+      // T077: Add assistant message to UI (mark as complete)
       const assistantMessage: ChatMessage = {
         id: crypto.randomUUID(),
         role: 'assistant',
         content: assistantContent,
         timestamp: new Date().toISOString(),
-        metadata: assistantMetadata,
+        metadata: {
+          ...assistantMetadata,
+          complete: true, // Stream completed successfully
+        },
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
@@ -291,8 +361,21 @@ export function ChatInterface({ conversationId: initialConversationId }: ChatInt
     } catch (err: any) {
       console.error('[ChatInterface] Send message error:', err);
 
-      // T039: Exponential backoff retry (1s, 2s, 4s)
-      if (attempt < 3 && !err.message.includes('Rate limit')) {
+      // T075: Clear timeout on error
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      setShowTimeoutDialog(false);
+      setIsWaitingForTimeout(false);
+
+      // T073, T039: Exponential backoff retry for network errors (1s, 2s, 4s)
+      // Skip retry for rate limit, auth errors, or aborted requests
+      if (
+        attempt < 3 &&
+        !err.message.includes('Rate limit') &&
+        err.name !== 'AbortError'
+      ) {
         const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
         console.log(`[ChatInterface] Retrying in ${delay}ms (attempt ${attempt + 1}/3)`);
 
@@ -302,6 +385,22 @@ export function ChatInterface({ conversationId: initialConversationId }: ChatInt
         return sendMessage(content, attempt + 1);
       }
 
+      // T077: Add partial message indicator if stream was interrupted
+      if (streamingContent && err.name === 'AbortError') {
+        const partialMessage: ChatMessage = {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: streamingContent,
+          timestamp: new Date().toISOString(),
+          metadata: {
+            complete: false, // Incomplete stream
+            interrupted: true,
+          },
+        };
+        setMessages((prev) => [...prev, partialMessage]);
+        setStreamingContent('');
+      }
+
       // T040: Show error with manual retry option
       setError(err.message || 'Failed to send message');
       setRetryCount(attempt + 1);
@@ -309,7 +408,7 @@ export function ChatInterface({ conversationId: initialConversationId }: ChatInt
     } finally {
       setIsStreaming(false);
     }
-  }, [conversationId]);
+  }, [conversationId, streamingContent]);
 
   /**
    * T040: Manual retry for failed messages
@@ -323,10 +422,52 @@ export function ChatInterface({ conversationId: initialConversationId }: ChatInt
     }
   };
 
+  /**
+   * T075: Timeout dialog handlers
+   */
+  const handleCancelRequest = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    setShowTimeoutDialog(false);
+    setIsWaitingForTimeout(false);
+    setIsStreaming(false);
+    toast.info('Request cancelled');
+  };
+
+  const handleKeepWaiting = () => {
+    setShowTimeoutDialog(false);
+    // Keep isWaitingForTimeout true to prevent showing dialog again
+    toast.info('Continuing to wait for response...');
+  };
+
   return (
     <div className="flex flex-col h-full">
-      {/* T040: Error banner with retry button */}
-      {error && (
+      {/* T072-T077: Enhanced error handling UI */}
+      {rateLimitCountdown !== null && rateLimitCountdown > 0 && (
+        <div className="border-b border-orange-200 dark:border-orange-800">
+          <RateLimitError retryAfter={rateLimitCountdown} countdown={rateLimitCountdown} />
+        </div>
+      )}
+
+      {authErrorCountdown !== null && authErrorCountdown > 0 && (
+        <div className="border-b border-red-200 dark:border-red-800">
+          <AuthError countdown={authErrorCountdown} />
+        </div>
+      )}
+
+      {showTimeoutDialog && (
+        <div className="border-b border-yellow-200 dark:border-yellow-800">
+          <TimeoutError onCancel={handleCancelRequest} onKeepWaiting={handleKeepWaiting} />
+        </div>
+      )}
+
+      {/* T040: Generic error banner with retry button (for other errors) */}
+      {error && !rateLimitCountdown && !authErrorCountdown && !showTimeoutDialog && (
         <div className="bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800 p-3">
           <div className="flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />

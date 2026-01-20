@@ -333,14 +333,14 @@ description: "Implementation tasks for ChatKit Frontend Chatbot Overlay"
 
 **Skills**: Use **@.claude/skills/mjs/building-chat-interfaces** (error handling, retry logic, logging)
 
-- [ ] T070 [P] Create ErrorBoundary component in frontend/src/components/chat/ErrorBoundary.tsx
-- [ ] T071 [P] Create error state UI components in frontend/src/components/chat/ErrorState.tsx (NetworkError, RateLimitError, AuthError, TimeoutError, BackendUnavailable, UnknownError) using error messages and UI actions from contracts/error-messages.yaml
-- [ ] T072 Implement rate limit error handling in ChatInterface (see contracts/error-messages.yaml RateLimitError: detect 429 status code, display message with countdown timer from Retry-After header or 60s fallback, disable input until countdown expires)
-- [ ] T073 Implement network error handling in ChatInterface (see contracts/error-messages.yaml NetworkError: connection lost → auto-retry 3x with 1s/2s/4s backoff → manual retry button)
-- [ ] T074 Implement authentication error handling in ChatInterface (see contracts/error-messages.yaml AuthenticationError: 401 status → display message with 3-second countdown → redirect to /auth/signin, preserve conversation context)
-- [ ] T075 Implement timeout handling in ChatInterface (see contracts/error-messages.yaml TimeoutError: >10 seconds → show message with "Cancel" and "Keep Waiting" options)
-- [ ] T076 Add correlation ID logging in frontend/src/lib/chatkit-config.ts (see contracts/error-messages.yaml logging section: include correlation ID in all error logs with context per FR-020)
-- [ ] T077 Implement partial message handling in ChatInterface (stream interrupted → show "(incomplete)" indicator in message bubble)
+- [x] T070 [P] Create ErrorBoundary component in frontend/src/components/chat/ErrorBoundary.tsx
+- [x] T071 [P] Create error state UI components in frontend/src/components/chat/ErrorState.tsx (NetworkError, RateLimitError, AuthError, TimeoutError, BackendUnavailable, UnknownError) using error messages and UI actions from contracts/error-messages.yaml
+- [x] T072 Implement rate limit error handling in ChatInterface (see contracts/error-messages.yaml RateLimitError: detect 429 status code, display message with countdown timer from Retry-After header or 60s fallback, disable input until countdown expires)
+- [x] T073 Implement network error handling in ChatInterface (see contracts/error-messages.yaml NetworkError: connection lost → auto-retry 3x with 1s/2s/4s backoff → manual retry button)
+- [x] T074 Implement authentication error handling in ChatInterface (see contracts/error-messages.yaml AuthenticationError: 401 status → display message with 3-second countdown → redirect to /auth/signin, preserve conversation context)
+- [x] T075 Implement timeout handling in ChatInterface (see contracts/error-messages.yaml TimeoutError: >10 seconds → show message with "Cancel" and "Keep Waiting" options)
+- [x] T076 Add correlation ID logging in frontend/src/lib/chatkit-config.ts (see contracts/error-messages.yaml logging section: include correlation ID in all error logs with context per FR-020)
+- [x] T077 Implement partial message handling in ChatInterface (stream interrupted → show "(incomplete)" indicator in message bubble)
 
 ---
 

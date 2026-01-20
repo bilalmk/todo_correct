@@ -24,7 +24,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { CheckCircle2, Loader2 } from 'lucide-react';
+import { CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export interface ChatMessage {
@@ -39,6 +39,8 @@ export interface ChatMessage {
       result?: any;
       error?: string;
     }[];
+    complete?: boolean; // T077: Stream completion status
+    interrupted?: boolean; // T077: Stream interrupted flag
   };
 }
 
@@ -156,6 +158,18 @@ export function MessageList({
                       )}
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* T077: Incomplete message indicator */}
+              {message.role === 'assistant' && message.metadata?.complete === false && (
+                <div className="mt-2 flex items-center gap-2 text-xs text-yellow-600 dark:text-yellow-400">
+                  <AlertCircle className="h-3 w-3" />
+                  <span>
+                    {message.metadata.interrupted
+                      ? 'Response interrupted (partial message)'
+                      : 'Incomplete response'}
+                  </span>
                 </div>
               )}
 
