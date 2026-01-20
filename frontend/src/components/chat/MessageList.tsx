@@ -48,6 +48,7 @@ interface MessageListProps {
   streamingContent?: string;
   onLoadMore?: () => void;
   hasMore?: boolean;
+  isLoadingMore?: boolean; // T060: Loading state for pagination
 }
 
 export function MessageList({
@@ -56,6 +57,7 @@ export function MessageList({
   streamingContent = '',
   onLoadMore,
   hasMore = false,
+  isLoadingMore = false,
 }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -70,18 +72,22 @@ export function MessageList({
       ref={scrollContainerRef}
       className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-800"
     >
-      {/* Load earlier messages button */}
+      {/* T058, T060: Load earlier messages button with loading state */}
       {hasMore && onLoadMore && (
         <div className="text-center">
           <button
             onClick={onLoadMore}
+            disabled={isLoadingMore}
             className="
               text-sm text-orange-600 dark:text-orange-400
               hover:text-orange-700 dark:hover:text-orange-300
               hover:underline
+              disabled:opacity-50 disabled:cursor-not-allowed
+              flex items-center gap-2 mx-auto
             "
           >
-            Load earlier messages
+            {isLoadingMore && <Loader2 className="h-3 w-3 animate-spin" />}
+            {isLoadingMore ? 'Loading...' : 'Load earlier messages'}
           </button>
         </div>
       )}

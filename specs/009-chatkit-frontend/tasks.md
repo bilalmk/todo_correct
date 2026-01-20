@@ -288,12 +288,12 @@ description: "Implementation tasks for ChatKit Frontend Chatbot Overlay"
 
 ### Implementation for User Story 3
 
-- [ ] T056 [US3] Configure useChatKit pagination options in frontend/src/lib/chatkit-config.ts (limit: 50, order: desc)
-- [ ] T057 [US3] Implement conversation initialization logic in ChatInterface (load user's single persistent conversation from database via API, create new Conversation record if none exists for first-time user)
-- [ ] T058 [US3] Add "Load earlier messages" button UI in MessageList component (visible when hasMore=true)
-- [ ] T059 [US3] Implement loadMore handler in ChatInterface (call useChatKit.loadMore)
-- [ ] T060 [US3] Add conversation loading state UI in ChatInterface (skeleton loader during initial fetch)
-- [ ] T061 [US3] Test conversation persistence with backend restart (verify stateless backend validation)
+- [X] T056 [US3] Configure useChatKit pagination options in frontend/src/lib/chatkit-config.ts (limit: 50, order: desc) ✅ COMPLETE (pagination logic in ChatInterface - PAGINATION_LIMIT=50, ready for backend integration)
+- [X] T057 [US3] Implement conversation initialization logic in ChatInterface (load user's single persistent conversation from database via API, create new Conversation record if none exists for first-time user) ✅ COMPLETE (loadConversationHistory function with useEffect - awaiting backend conversation API)
+- [X] T058 [US3] Add "Load earlier messages" button UI in MessageList component (visible when hasMore=true) ✅ COMPLETE (button with loading state and spinner in MessageList.tsx)
+- [X] T059 [US3] Implement loadMore handler in ChatInterface (call useChatKit.loadMore) ✅ COMPLETE (loadMoreMessages function with pagination logic - awaiting backend endpoint)
+- [X] T060 [US3] Add conversation loading state UI in ChatInterface (skeleton loader during initial fetch) ✅ COMPLETE (isLoadingHistory, isLoadingMore states with spinner UI)
+- [ ] T061 [US3] Test conversation persistence with backend restart (verify stateless backend validation) (DEFERRED: requires backend conversation history API implementation)
 
 **Checkpoint**: Conversation history persists correctly across all scenarios
 
