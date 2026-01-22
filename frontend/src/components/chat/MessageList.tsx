@@ -132,29 +132,50 @@ export function MessageList({
                 {message.content}
               </div>
 
-              {/* Tool call indicators (T050: success confirmation UI) */}
+              {/* T050, T051c: Tool call indicators (success confirmation UI - PROMINENT) */}
               {message.metadata?.toolCalls && message.metadata.toolCalls.length > 0 && (
-                <div className="mt-2 space-y-1">
+                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600 space-y-2">
                   {message.metadata.toolCalls.map((tool, idx) => (
                     <div
                       key={idx}
-                      className="flex items-center gap-2 text-xs opacity-80"
+                      className={`flex items-start gap-2 px-3 py-2 rounded-md ${
+                        tool.status === 'success'
+                          ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
+                          : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+                      }`}
                     >
                       {tool.status === 'success' && (
                         <>
-                          <CheckCircle2 className="h-3 w-3 text-green-500" />
-                          <span>
-                            {tool.toolName === 'add_task' && 'Task created'}
-                            {tool.toolName === 'update_task' && 'Task updated'}
-                            {tool.toolName === 'complete_task' && 'Task completed'}
-                            {tool.toolName === 'delete_task' && 'Task deleted'}
-                          </span>
+                          <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-green-800 dark:text-green-200">
+                              {tool.toolName === 'todo_add_task' && `Task created successfully`}
+                              {tool.toolName === 'todo_update_task' && `Task updated successfully`}
+                              {tool.toolName === 'todo_complete_task' && `Task marked as complete`}
+                              {tool.toolName === 'todo_delete_task' && `Task deleted successfully`}
+                              {tool.toolName === 'todo_list_tasks' && `Tasks retrieved`}
+                            </p>
+                            {tool.result?.task_id && (
+                              <p className="text-xs text-green-700 dark:text-green-300 mt-0.5">
+                                {tool.result.title && `"${tool.result.title}" `}
+                                (ID: #{tool.result.task_id})
+                              </p>
+                            )}
+                          </div>
                         </>
                       )}
                       {tool.status === 'error' && (
-                        <span className="text-red-500">
-                          Error: {tool.error || 'Operation failed'}
-                        </span>
+                        <>
+                          <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-red-800 dark:text-red-200">
+                              Operation failed
+                            </p>
+                            <p className="text-xs text-red-700 dark:text-red-300 mt-0.5">
+                              {tool.error || 'An error occurred'}
+                            </p>
+                          </div>
+                        </>
                       )}
                     </div>
                   ))}

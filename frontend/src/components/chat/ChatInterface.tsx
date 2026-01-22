@@ -47,19 +47,43 @@ export function ChatInterface({ conversationId: initialConversationId }: ChatInt
   const [retryCount, setRetryCount] = useState(0);
 
   // T057, T060: Conversation history state
-  const [conversationId, setConversationId] = useState<string | null>(initialConversationId || null);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-  const [hasMoreMessages, setHasMoreMessages] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [conversationId] = useState<string | null>(initialConversationId || null);
+  const [, setIsLoadingHistory] = useState(false);
+  const [hasMoreMessages] = useState(false);
+  const [currentPage] = useState(1);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   // T072-T077: Enhanced error handling state
   const [rateLimitCountdown, setRateLimitCountdown] = useState<number | null>(null);
   const [authErrorCountdown, setAuthErrorCountdown] = useState<number | null>(null);
   const [showTimeoutDialog, setShowTimeoutDialog] = useState(false);
-  const [isWaitingForTimeout, setIsWaitingForTimeout] = useState(false);
+  const [, setIsWaitingForTimeout] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // T084: Performance optimization - throttle SSE updates with requestAnimationFrame
+  const rafRef = useRef<number | null>(null);
+  const pendingStreamingContentRef = useRef<string>('');
+
+  /**
+   * T084: Throttled streaming content update
+   * Uses requestAnimationFrame to batch UI updates and prevent excessive re-renders
+   * when receiving >50 SSE events/second
+   */
+  const updateStreamingContent = useCallback((content: string) => {
+    pendingStreamingContentRef.current = content;
+
+    // If RAF is already scheduled, just update the pending content
+    if (rafRef.current !== null) {
+      return;
+    }
+
+    // Schedule RAF update
+    rafRef.current = requestAnimationFrame(() => {
+      setStreamingContent(pendingStreamingContentRef.current);
+      rafRef.current = null;
+    });
+  }, []);
 
   /**
    * T057: Load conversation history on mount
@@ -178,11 +202,30 @@ export function ChatInterface({ conversationId: initialConversationId }: ChatInt
   }, [authErrorCountdown]);
 
   /**
+   * T084: Cleanup RAF on unmount
+   */
+  useEffect(() => {
+    return () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+  }, []);
+
+  /**
    * T037: Send message and stream SSE response
    * T039: Exponential backoff retry (1s, 2s, 4s)
    * T072-T077: Enhanced error handling
+   * T078: Structured logging with performance metrics
    */
   const sendMessage = useCallback(async (content: string, attempt = 0) => {
+    // T078: Performance metrics tracking (FR-020)
+    const requestStartTime = performance.now();
+    let firstTokenTime: number | null = null;
+    const correlationId = crypto.randomUUID();
+    let userId: string | null = null;
+
     try {
       setError(null);
       setIsStreaming(true);
@@ -201,10 +244,20 @@ export function ChatInterface({ conversationId: initialConversationId }: ChatInt
       setMessages((prev) => [...prev, userMessage]);
 
       // Get user UUID for backend
-      const userId = await getUserUuidFromSession();
+      userId = await getUserUuidFromSession();
       if (!userId) {
         throw new Error('Please log in to use the chatbot');
       }
+
+      // T078: Log request with sanitized content (FR-020)
+      console.log('[ChatInterface] Sending message:', sanitize({
+        correlation_id: correlationId,
+        user_id: userId,
+        conversation_id: conversationId,
+        message: content, // Will be truncated to 50 chars by sanitize()
+        timestamp: new Date().toISOString(),
+        attempt: attempt,
+      }));
 
       // T075: Setup timeout handling (10 seconds)
       abortControllerRef.current = new AbortController();
@@ -293,17 +346,32 @@ export function ChatInterface({ conversationId: initialConversationId }: ChatInt
             if (event.type === 'thread.message.delta') {
               // Incremental content update
               assistantContent += event.content || '';
-              setStreamingContent(assistantContent);
+
+              // T084: Use throttled update to prevent excessive re-renders
+              updateStreamingContent(assistantContent);
+
+              // T078: Track time to first token (FR-020)
+              if (firstTokenTime === null && assistantContent.length > 0) {
+                firstTokenTime = performance.now();
+                const timeToFirstToken = Math.round(firstTokenTime - requestStartTime);
+                console.log('[ChatInterface] First token received:', {
+                  correlation_id: correlationId,
+                  time_to_first_token_ms: timeToFirstToken,
+                  timestamp: new Date().toISOString(),
+                });
+              }
             } else if (event.type === 'tool.call.start') {
               // MCP tool started
               console.log('[ChatInterface] Tool call started:', event.tool_name);
             } else if (event.type === 'tool.call.result') {
-              // T048, T049: MCP tool completed - emit TaskEvent
+              // T048, T049, T051b: MCP tool completed - emit TaskEvent and ensure confirmation message
               // T085: Sanitize tool result before logging
               console.log('[ChatInterface] Tool call result:', sanitize(event));
 
               const toolName = event.tool_name;
               const taskId = event.result?.task_id || event.result?.id;
+              const taskTitle = event.result?.title;
+              const taskStatus = event.result?.status;
 
               // Track tool call in message metadata
               if (!assistantMetadata.toolCalls) {
@@ -317,8 +385,32 @@ export function ChatInterface({ conversationId: initialConversationId }: ChatInt
                 error: event.error,
               });
 
-              // T049: Emit TaskEvent for dashboard sync
-              if (event.success && taskId && ['add_task', 'update_task', 'complete_task', 'delete_task'].includes(toolName)) {
+              // T051b: Generate explicit confirmation message (fallback if AI doesn't provide it)
+              // This ensures 100% visibility of task operations per FR-021
+              if (event.success && ['todo_add_task', 'todo_update_task', 'todo_complete_task', 'todo_delete_task'].includes(toolName)) {
+                let confirmationMessage = '';
+
+                if (toolName === 'todo_add_task' && taskTitle) {
+                  confirmationMessage = `\n\n✓ Task '${taskTitle}' has been added successfully (ID: #${taskId})`;
+                } else if (toolName === 'todo_update_task' && taskId) {
+                  confirmationMessage = `\n\n✓ Task #${taskId}${taskTitle ? ` updated to '${taskTitle}'` : ' has been updated'}`;
+                } else if (toolName === 'todo_complete_task' && taskId) {
+                  confirmationMessage = `\n\n✓ Task #${taskId} marked as complete`;
+                } else if (toolName === 'todo_delete_task' && taskId) {
+                  confirmationMessage = `\n\n✓ Task #${taskId} has been deleted`;
+                }
+
+                // Append confirmation to streaming content if not already present
+                // (AI should already include this, but this is a safety net)
+                if (confirmationMessage && !assistantContent.includes('✓')) {
+                  assistantContent += confirmationMessage;
+                  updateStreamingContent(assistantContent);
+                }
+              }
+
+              // T049, T051f: Emit TaskEvent for dashboard sync IMMEDIATELY after tool success
+              // Tool names have 'todo_' prefix from MCP server
+              if (event.success && taskId && ['todo_add_task', 'todo_update_task', 'todo_complete_task', 'todo_delete_task'].includes(toolName)) {
                 try {
                   const taskEvent = createTaskEventFromTool(
                     toolName,
@@ -326,9 +418,13 @@ export function ChatInterface({ conversationId: initialConversationId }: ChatInt
                     userId,
                     event.correlation_id
                   );
+
+                  // T051f: Emit event immediately (dashboard should update within 1 second per FR-024)
                   emitTaskEvent(taskEvent);
+
                   // T085: Sanitize task event before logging
                   console.log('[ChatInterface] TaskEvent emitted:', sanitize(taskEvent));
+                  console.log('[ChatInterface] Dashboard refresh triggered at:', new Date().toISOString());
                 } catch (err) {
                   // T085: Sanitize error before logging
                   console.error('[ChatInterface] Failed to emit TaskEvent:', sanitize(err));
@@ -362,9 +458,30 @@ export function ChatInterface({ conversationId: initialConversationId }: ChatInt
       setMessages((prev) => [...prev, assistantMessage]);
       setStreamingContent('');
       setRetryCount(0); // Reset retry count on success
+
+      // T078: Log response completion with performance metrics (FR-020)
+      const totalResponseTime = Math.round(performance.now() - requestStartTime);
+      console.log('[ChatInterface] Response completed:', sanitize({
+        correlation_id: correlationId,
+        user_id: userId,
+        response: assistantContent, // Will be truncated to 50 chars
+        time_to_first_token_ms: firstTokenTime ? Math.round(firstTokenTime - requestStartTime) : null,
+        total_response_time_ms: totalResponseTime,
+        tool_calls: assistantMetadata.toolCalls?.length || 0,
+        timestamp: new Date().toISOString(),
+      }))
     } catch (err: any) {
-      // T085: Sanitize error before logging (may contain message content)
-      console.error('[ChatInterface] Send message error:', sanitize(err));
+      // T078, T085: Log error with full context and performance metrics (FR-020)
+      const errorTime = Math.round(performance.now() - requestStartTime);
+      console.error('[ChatInterface] Send message error:', sanitize({
+        correlation_id: correlationId,
+        user_id: userId,
+        error_message: err.message,
+        error_stack: err.stack,
+        time_elapsed_ms: errorTime,
+        attempt: attempt,
+        timestamp: new Date().toISOString(),
+      }));
 
       // T075: Clear timeout on error
       if (timeoutRef.current) {

@@ -270,6 +270,73 @@ export function onTaskEvent(callback: (detail: TaskEventDetail) => void): () => 
 
 **Performance**: CustomEvent dispatch is synchronous within the same JavaScript execution context (no network overhead). Event listener triggers immediate re-render of dashboard task list via React state update in `refreshTasks()`.
 
+## Chatbot Feedback & Task List Display
+
+**Technical Specification** (addresses spec.md FR-021, FR-022, FR-023, FR-024):
+
+**Issue**: Initial implementation may successfully execute task operations via MCP tools but fail to display visible confirmation messages in the chatbot or formatted task lists when queried.
+
+**Requirements**:
+
+1. **Confirmation Messages (FR-021)**:
+   - All task operations (add, update, delete, complete) MUST display explicit success messages in the chatbot
+   - Messages MUST be visible in the AI response bubble (e.g., "✓ Task 'buy groceries' has been added successfully")
+   - MCP server responses MUST include structured success/failure indicators
+
+2. **Task List Queries (FR-022)**:
+   - Chatbot MUST respond to natural language queries ("show my tasks", "list pending tasks")
+   - Responses MUST include formatted lists with task IDs, titles, and completion status
+   - Example format: "You have 5 pending tasks: 1. [ID: 12] Buy groceries - Pending..."
+
+3. **Fresh Data Fetching (FR-023)**:
+   - Task list queries MUST fetch current data from backend (no stale cache)
+   - Queries MUST complete within 2 seconds
+
+4. **Dashboard Refresh Timing (FR-024)**:
+   - Dashboard refresh MUST trigger immediately after chatbot displays confirmation message
+   - Dashboard update MUST complete within 1 second of confirmation message display
+
+**Implementation Approach**:
+
+```typescript
+// In ChatInterface.tsx - MCP tool response handler
+function handleToolCallResult(result: MCPToolResult) {
+  const { tool_name, success, data } = result;
+
+  if (success && tool_name.includes('task')) {
+    // 1. Display confirmation message in chatbot
+    const confirmationMessage = generateConfirmationMessage(tool_name, data);
+    appendMessageToChat({ role: 'assistant', content: confirmationMessage });
+
+    // 2. Emit TaskEvent for dashboard refresh
+    if (tool_name === 'add_task') {
+      emitTaskEvent({ taskId: data.id, operation: 'task.created', userId, timestamp: new Date().toISOString() });
+    }
+    // ... similar for update_task, delete_task, complete_task
+  }
+}
+
+function generateConfirmationMessage(toolName: string, data: any): string {
+  switch (toolName) {
+    case 'add_task':
+      return `✓ Task '${data.title}' has been added successfully`;
+    case 'update_task':
+      return `✓ Task ${data.id} updated to '${data.title}'`;
+    case 'complete_task':
+      return `✓ Task ${data.id} marked as complete`;
+    case 'delete_task':
+      return `✓ Task ${data.id} has been deleted`;
+    default:
+      return `✓ Operation completed`;
+  }
+}
+```
+
+**Testing**:
+- SC-013: 100% of task operations display confirmation message within 2 seconds
+- SC-014: Task list queries return accurate data within 2 seconds
+- SC-015: Dashboard refreshes within 1 second of chatbot confirmation
+
 ## Complexity Tracking
 
 > **Fill ONLY if Constitution Check has violations that must be justified**

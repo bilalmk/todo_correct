@@ -33,11 +33,13 @@ A user can create, update, complete, and delete tasks using conversational comma
 
 **Acceptance Scenarios**:
 
-1. **Given** a user has the chatbot open, **When** they type "add buy groceries" and submit, **Then** the AI creates a new task AND the task appears in the background dashboard task list within 1 second
-2. **Given** a user has existing tasks, **When** they say "show my tasks" in the chatbot, **Then** the AI streams a formatted list of their current tasks with titles, completion status, and IDs
-3. **Given** a user sees task ID 5 in the dashboard, **When** they type "mark task 5 done" in the chatbot, **Then** the AI marks the task complete AND the dashboard task card updates to show completed status within 1 second
-4. **Given** a user wants to remove a task, **When** they type "delete task 3" in the chatbot, **Then** the AI deletes the task AND it disappears from the dashboard task list within 1 second
-5. **Given** a user wants to modify a task, **When** they type "update task 2 title to 'Call dentist'", **Then** the AI updates the task AND the dashboard shows the new title within 1 second
+1. **Given** a user has the chatbot open, **When** they type "add buy groceries" and submit, **Then** the AI creates a new task AND displays a confirmation message in the chatbot (e.g., "✓ Task 'buy groceries' has been added successfully") AND the task appears in the background dashboard task list within 1 second
+2. **Given** a user has existing tasks, **When** they say "show my tasks" or "list pending tasks" in the chatbot, **Then** the AI streams a formatted list of their current tasks with titles, completion status, IDs, and counts (e.g., "You have 5 pending tasks: 1. [ID: 12] Buy groceries - Pending...")
+3. **Given** a user sees task ID 5 in the dashboard, **When** they type "mark task 5 done" in the chatbot, **Then** the AI marks the task complete AND displays a confirmation message (e.g., "✓ Task 5 marked as complete") AND the dashboard task card updates to show completed status within 1 second
+4. **Given** a user wants to remove a task, **When** they type "delete task 3" in the chatbot, **Then** the AI deletes the task AND displays a confirmation message (e.g., "✓ Task 3 has been deleted") AND it disappears from the dashboard task list within 1 second
+5. **Given** a user wants to modify a task, **When** they type "update task 2 title to 'Call dentist'", **Then** the AI updates the task AND displays a confirmation message (e.g., "✓ Task 2 updated to 'Call dentist'") AND the dashboard shows the new title within 1 second
+6. **Given** a user completes a task operation (add/update/delete/complete), **When** the operation succeeds, **Then** the chatbot MUST display a visible success confirmation message before the dashboard updates
+7. **Given** a user asks to see their tasks using natural language variations ("show tasks", "what are my pending tasks", "list all tasks"), **When** the AI processes the request, **Then** the chatbot displays the complete task list with proper formatting (task IDs, titles, status) even if there are 0 tasks (displaying "You have no tasks" message)
 
 ---
 
@@ -122,6 +124,10 @@ The chatbot popup opens and closes with smooth animations (under 300ms) that enh
 - What happens if a user exceeds the rate limit (20 requests/minute)? (See FR-019: Display "Too many requests. Please wait before sending more messages." error, disable message input temporarily with countdown timer showing seconds until next allowed request)
 - How should sensitive data in logs be handled? (See FR-020: Sanitize PII and task content in logs; log only message length and first 50 characters with "[...]" truncation; never log JWT tokens or API keys)
 - What happens when conversation history reaches 90 days? (Automated background job deletes conversations and associated messages older than 90 days; user receives no notification; next chatbot interaction creates a fresh conversation automatically)
+- What happens when a task operation succeeds but the AI doesn't generate a confirmation message? (Frontend should detect missing confirmation via MCP response structure and display a generic success message like "✓ Operation completed" to ensure user feedback)
+- What happens when the dashboard fails to refresh after a successful task operation in the chatbot? (Chatbot still shows success message; system retries TaskContext update 3 times with 500ms delay; if still failing, display "Task updated but dashboard may need manual refresh" with a refresh button in the chatbot)
+- What happens when a user asks for their task list but has 100+ tasks? (AI should return the first 20 tasks with a message like "Showing 20 of 100 tasks. Use filters like 'show pending tasks' or 'show high priority tasks' to narrow down.")
+- What happens when a user asks to list tasks but the backend is slow (>5 seconds)? (Display loading indicator in chatbot; if takes >5 seconds show "Taking longer than usual..." message; timeout after 10 seconds with error message and retry button)
 
 ## Requirements *(mandatory)*
 
@@ -147,6 +153,10 @@ The chatbot popup opens and closes with smooth animations (under 300ms) that enh
 - **FR-018**: System MUST display clear error states for different failure types (NetworkError, BackendUnavailable, AuthenticationError, TimeoutError, RateLimitError, UnknownError) with appropriate user-facing messages and retry options as defined in contracts/error-messages.yaml
 - **FR-019**: Backend MUST enforce per-user rate limiting of 20 requests per minute for chatbot API calls, returning a 429 Too Many Requests error with optional Retry-After header. Frontend MUST handle 429 responses by displaying "Too many requests. Please wait [countdown] seconds before sending more messages." with countdown timer calculated from server-provided Retry-After header if available, otherwise client-side 60-second countdown from last request timestamp.
 - **FR-020**: System MUST implement structured logging for chatbot operations including: (1) each chatbot request/response with correlation ID, user_id, timestamp, and message content summary (first 50 characters with "[...]" truncation), (2) all errors with full stack traces and context, (3) performance metrics for response times (time to first token, total response time). All logs MUST sanitize sensitive data (never log JWT tokens, API keys, or full PII).
+- **FR-021**: Chatbot AI MUST return explicit confirmation messages for all task operations (add, update, delete, complete) that are visible in the chat interface before the dashboard updates. Messages MUST include operation type and task identifier (e.g., "✓ Task 'buy groceries' has been added successfully", "✓ Task 5 marked as complete", "✓ Task 3 has been deleted"). MCP server responses MUST include structured success/failure indicators that the AI uses to generate these confirmations.
+- **FR-022**: Chatbot AI MUST respond to task list queries ("show my tasks", "list pending tasks", "what tasks do I have") by displaying a formatted task list that includes: task count, task IDs, titles, and completion status. Response format MUST be human-readable (e.g., "You have 5 pending tasks: 1. [ID: 12] Buy groceries - Pending, 2. [ID: 15] Call dentist - Pending..."). If the user has zero tasks, AI MUST respond with a clear message (e.g., "You have no tasks at the moment").
+- **FR-023**: System MUST ensure task list query responses in the chatbot display the current state of tasks by fetching fresh data from the backend for each query (no stale cached responses). Task list queries MUST complete within 2 seconds.
+- **FR-024**: System MUST trigger the dashboard task list refresh mechanism (TaskContext event) immediately after receiving successful task operation confirmation from the MCP server, ensuring the dashboard updates within 1 second of the chatbot displaying the success message. The refresh MUST fetch the latest task data from the backend to reflect the changes made via the chatbot.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -185,6 +195,9 @@ The chatbot popup opens and closes with smooth animations (under 300ms) that enh
 - **SC-010**: 90% of chatbot task operations (add, update, delete, complete) succeed on first attempt without errors
 - **SC-011**: Failed chatbot requests automatically retry up to 3 times with exponential backoff (1s, 2s, 4s) before requiring manual user intervention (clicking the "Retry" button displayed after automatic retries exhaust)
 - **SC-012**: System maintains performance targets (1s dashboard refresh, 300ms animations, 2s streaming start) with up to 50 concurrent users without degradation
+- **SC-013**: 100% of task operations (add, update, delete, complete) display a visible confirmation message in the chatbot within 2 seconds of user submission
+- **SC-014**: Task list queries ("show my tasks", "list pending tasks") return formatted, accurate task data in the chatbot within 2 seconds with 100% accuracy matching the current database state
+- **SC-015**: Dashboard task list refreshes within 1 second of chatbot displaying a task operation confirmation message, with 100% consistency between chatbot feedback and dashboard state
 
 ## Assumptions *(mandatory)*
 
@@ -205,6 +218,7 @@ The chatbot popup opens and closes with smooth animations (under 300ms) that enh
 - **Backend ChatKit Server**: Depends on backend/src/api/chatkit.py being deployed and accessible at NEXT_PUBLIC_BACKEND_URL (validated in Phase 0 via T000)
   - **Rate Limiting**: Backend implements 20 requests/minute per user, returns 429 status code when exceeded (validated in Phase 0 via T000c)
   - **MCP Tool Validation**: Backend validates all MCP tool outputs before returning to frontend (backend responsibility, assumed secure; not validated in Phase 0 as this is backend implementation detail)
+  - **MCP Tool Response Format**: MCP tools (add_task, update_task, delete_task, complete_task, list_tasks) MUST return structured responses that include success/failure indicators and relevant data (task ID, title, status) that the AI can use to generate human-readable confirmation messages. For list_tasks, response MUST include complete task data (ID, title, status, priority, etc.) formatted for AI consumption.
   - **Conversation Persistence**: Backend persists Conversation and Message entities to Neon PostgreSQL (validated in Phase 0 via T000a, T000b)
   - **90-Day Cleanup**: Backend implements scheduled job for conversation cleanup (backend responsibility, out of scope for this frontend feature)
 - **Dashboard Task Context**: Requires access to TaskContext or similar state management to trigger real-time task list refresh (validated in Phase 0 via T000h)
