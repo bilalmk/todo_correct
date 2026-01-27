@@ -46,14 +46,16 @@ export const auth = betterAuth({
       // T020: Include UUID in JWT payload for backend API use
       async jwt(user, session) {
         // Fetch UUID from database (since it's not loaded by default)
-        console.log("[Better Auth JWT] Generating JWT for user:", user.id);
+        // T085: Don't log PII (user IDs) in production
+        console.log("[Better Auth JWT] Generating JWT for user (ID present):", !!user.id);
         const result = await pool.query(
           'SELECT uuid FROM "user" WHERE id = $1',
           [user.id]
         );
 
         const uuid = result.rows[0]?.uuid;
-        console.log("[Better Auth JWT] UUID from database:", uuid);
+        // T085: Don't log PII (UUIDs) in production
+        console.log("[Better Auth JWT] UUID fetched from database:", !!uuid);
 
         return {
           uuid, // Include UUID in JWT token

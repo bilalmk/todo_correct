@@ -1,0 +1,244 @@
+openapi: 3.1.0
+info:
+  title: ChatKit API Proxy
+  description: Next.js API route that proxies ChatKit requests to backend with httpOnly cookie JWT extraction
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3000
+    description: Local development
+  - url: https://your-frontend.vercel.app
+    description: Production
+
+paths:
+  /api/chatkit:
+    post:
+      summary: Send chat message to AI assistant
+      description: |
+        Proxies ChatKit requests from frontend to backend, extracting JWT token from httpOnly cookie
+        and forwarding as Authorization header. Streams SSE response back to client.
+
+        **Authentication**: JWT token extracted from `better_auth.session_token` httpOnly cookie
+        **Response Format**: Server-Sent Events (text/event-stream)
+
+      operationId: sendChatMessage
+      tags:
+        - ChatKit Proxy
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - message
+              properties:
+                message:
+                  type: string
+                  minLength: 1
+                  maxLength: 10000
+                  description: User's chat message
+                  example: "Add a task to buy groceries"
+                thread_id:
+                  type: string
+                  format: uuid
+                  description: Optional conversation UUID (auto-created if not provided)
+                  example: "550e8400-e29b-41d4-a716-446655440000"
+                context:
+                  type: object
+                  description: Request metadata (injected by custom fetch interceptor)
+                  properties:
+                    userId:
+                      type: string
+                      format: uuid
+                      example: "123e4567-e89b-12d3-a456-426614174000"
+                    correlationId:
+                      type: string
+                      format: uuid
+                      example: "7f3d8c90-1234-5678-9abc-def012345678"
+                    pageContext:
+                      type: object
+                      properties:
+                        url:
+                          type: string
+                          example: "http://localhost:3000/dashboard"
+                        title:
+                          type: string
+                          example: "Dashboard - My Tasks"
+                        referrer:
+                          type: string
+                          example: ""
+                    timestamp:
+                      type: string
+                      format: date-time
+                      example: "2026-01-15T14:30:00Z"
+
+            examples:
+              simple_message:
+                summary: Simple message without thread
+                value:
+                  message: "Show me all my pending tasks"
+                  thread_id: null
+
+              existing_conversation:
+                summary: Message in existing conversation
+                value:
+                  message: "Mark task 5 as completed"
+                  thread_id: "550e8400-e29b-41d4-a716-446655440000"
+
+      responses:
+        '200':
+          description: Streaming response with SSE events
+          headers:
+            Content-Type:
+              schema:
+                type: string
+                enum: [text/event-stream]
+              description: Server-Sent Events stream
+            Cache-Control:
+              schema:
+                type: string
+                enum: [no-cache]
+              description: Disable caching for streaming responses
+            Connection:
+              schema:
+                type: string
+                enum: [keep-alive]
+              description: Keep connection open for streaming
+            X-Correlation-ID:
+              schema:
+                type: string
+                format: uuid
+              description: Request correlation ID for tracing
+              example: "7f3d8c90-1234-5678-9abc-def012345678"
+
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  SSE event stream with multiple event types. Each event follows the format:
+
+                  event: <event_type>
+                  data: <json_payload>
+
+                  (blank line)
+
+              examples:
+                streaming_response:
+                  summary: Complete SSE stream for task creation
+                  value: |
+                    event: thread.message.delta
+                    data: {"type":"thread.message.delta","content":"I'll create that task for you."}
+
+                    event: tool.call.start
+                    data: {"type":"tool.call.start","tool_name":"add_task"}
+
+                    event: tool.call.result
+                    data: {"type":"tool.call.result","tool_name":"add_task","success":true,"result":{"id":123,"title":"Buy groceries"}}
+
+                    event: thread.message.delta
+                    data: {"type":"thread.message.delta","content":" Task created successfully!"}
+
+                    event: thread.message.completed
+                    data: {"type":"thread.message.completed","message_id":"msg_abc123"}
+
+        '401':
+          description: Unauthorized - Missing or invalid JWT token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Unauthorized"
+                  message:
+                    type: string
+                    example: "No valid session found. Please log in."
+
+        '422':
+          description: Validation Error - Invalid request body
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        loc:
+                          type: array
+                          items:
+                            type: string
+                          example: ["body", "message"]
+                        msg:
+                          type: string
+                          example: "field required"
+                        type:
+                          type: string
+                          example: "value_error.missing"
+
+        '429':
+          description: Rate Limit Exceeded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Too many requests. Please wait before sending more messages."
+                  code:
+                    type: string
+                    enum: [RATE_LIMIT_EXCEEDED]
+                  retry_after:
+                    type: integer
+                    description: Seconds to wait before retrying
+                    example: 30
+
+        '500':
+          description: Internal Server Error - Backend service failure
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Unable to process your message. Please try again."
+                  code:
+                    type: string
+                    enum: [CHAT_STREAMING_ERROR, BACKEND_UNAVAILABLE]
+                  correlation_id:
+                    type: string
+                    format: uuid
+                    example: "7f3d8c90-1234-5678-9abc-def012345678"
+
+        '503':
+          description: Service Unavailable - Backend or MCP server unreachable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "ChatKit service is temporarily unavailable. Please try again later."
+                  code:
+                    type: string
+                    enum: [SERVICE_UNAVAILABLE]
+
+components:
+  securitySchemes:
+    CookieAuth:
+      type: apiKey
+      in: cookie
+      name: better_auth.session_token
+      description: JWT token stored in httpOnly cookie by Better Auth
+
+security:
+  - CookieAuth: []

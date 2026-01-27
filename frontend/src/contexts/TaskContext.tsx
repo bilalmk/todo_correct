@@ -3,6 +3,7 @@
 /**
  * TaskContext - Task State Management with Real API Integration
  * T022-T027: Updated to use real backend API calls
+ * T008: Enhanced to emit TaskEvent after operations (Feature: 009-chatkit-frontend)
  *
  * Built following skills:
  * - @.claude/skills/custom/frontend-design-system (React Context API integration)
@@ -13,6 +14,7 @@
  * - Loading states for all operations
  * - Error handling with correlation IDs
  * - Optimistic UI updates
+ * - Event emission for chatbot-dashboard sync (T008)
  */
 
 import {
@@ -28,6 +30,7 @@ import { authClient } from "@/lib/auth-client";
 import { apiClient } from "@/lib/api-client";
 import { getUserUuidFromSession } from "@/lib/get-user-uuid";
 import { BackendQueryParams } from "@/contexts/FilterContext";
+import { emitTaskEvent } from "@/lib/events/task-events"; // T008: Event system
 
 // T029: Paginated response interface
 interface PaginatedTaskResponse {
@@ -154,6 +157,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // T023: Create task via API - returns created task for tag assignment
+  // T008: Emit TaskEvent after successful creation
   const addTask = async (input: Omit<Task, "id" | "created_at" | "updated_at" | "tags">): Promise<Task> => {
     try {
       setError(null);
@@ -174,6 +178,17 @@ export function TaskProvider({ children }: { children: ReactNode }) {
       // Optimistic UI update: add task to the beginning of the list
       setTasks((prev) => [createdTask, ...(Array.isArray(prev) ? prev : [])]);
 
+      // T008: Emit task.created event for chatbot-dashboard sync
+      emitTaskEvent({
+        taskId: createdTask.id.toString(),
+        operation: 'task.created',
+        userId: userId,
+        timestamp: new Date().toISOString(),
+        metadata: {
+          source: 'dashboard',
+        },
+      });
+
       return createdTask; // Return for tag assignment
     } catch (err: any) {
       const errorMessage = err.message || "Failed to create task";
@@ -192,6 +207,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   };
 
   // T024: Update task via API
+  // T008: Emit TaskEvent after successful update
   const updateTask = async (id: number, updates: Partial<Task>) => {
     try {
       setError(null);
@@ -210,6 +226,17 @@ export function TaskProvider({ children }: { children: ReactNode }) {
       setTasks((prev) =>
         Array.isArray(prev) ? prev.map((task) => (task.id === id ? updatedTask : task)) : []
       );
+
+      // T008: Emit task.updated event for chatbot-dashboard sync
+      emitTaskEvent({
+        taskId: id.toString(),
+        operation: 'task.updated',
+        userId: userId,
+        timestamp: new Date().toISOString(),
+        metadata: {
+          source: 'dashboard',
+        },
+      });
     } catch (err: any) {
       const errorMessage = err.message || "Failed to update task";
       setError(errorMessage);
@@ -227,6 +254,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   };
 
   // T025: Delete task via API
+  // T008: Emit TaskEvent after successful deletion
   const deleteTask = async (id: number) => {
     try {
       setError(null);
@@ -243,6 +271,17 @@ export function TaskProvider({ children }: { children: ReactNode }) {
 
       // Remove from local state
       setTasks((prev) => Array.isArray(prev) ? prev.filter((task) => task.id !== id) : []);
+
+      // T008: Emit task.deleted event for chatbot-dashboard sync
+      emitTaskEvent({
+        taskId: id.toString(),
+        operation: 'task.deleted',
+        userId: userId,
+        timestamp: new Date().toISOString(),
+        metadata: {
+          source: 'dashboard',
+        },
+      });
     } catch (err: any) {
       const errorMessage = err.message || "Failed to delete task";
       setError(errorMessage);
@@ -260,6 +299,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   };
 
   // T026: Toggle task completion via API
+  // T008: Emit TaskEvent after successful completion toggle
   const completeTask = async (id: number, completed: boolean) => {
     try {
       setError(null);
@@ -281,6 +321,17 @@ export function TaskProvider({ children }: { children: ReactNode }) {
       setTasks((prev) =>
         Array.isArray(prev) ? prev.map((task) => (task.id === id ? updatedTask : task)) : []
       );
+
+      // T008: Emit task.completed event for chatbot-dashboard sync
+      emitTaskEvent({
+        taskId: id.toString(),
+        operation: 'task.completed',
+        userId: userId,
+        timestamp: new Date().toISOString(),
+        metadata: {
+          source: 'dashboard',
+        },
+      });
     } catch (err: any) {
       const errorMessage = err.message || "Failed to update task status";
       setError(errorMessage);

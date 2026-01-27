@@ -8,6 +8,11 @@ const envSchema = z.object({
   NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
   NEXT_PUBLIC_BACKEND_API_URL: z.string().url().default("http://localhost:8000"),
 
+  // ChatKit configuration (Feature: 009-chatkit-frontend, Task: T002a)
+  // Note: OPENAI_DOMAIN_KEY is a placeholder - real auth happens via backend JWT
+  NEXT_PUBLIC_OPENAI_DOMAIN_KEY: z.string().optional().default("chatkit-placeholder"),
+  NEXT_PUBLIC_BACKEND_URL: z.string().url().default("http://localhost:8000"),
+
   // Server-only variables
   DATABASE_URL: z.string().min(1),
   BETTER_AUTH_SECRET: z.string().min(32),
@@ -21,6 +26,8 @@ function validateEnv(): Env {
     return envSchema.parse({
       NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
       NEXT_PUBLIC_BACKEND_API_URL: process.env.NEXT_PUBLIC_BACKEND_API_URL,
+      NEXT_PUBLIC_OPENAI_DOMAIN_KEY: process.env.NEXT_PUBLIC_OPENAI_DOMAIN_KEY,
+      NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL,
       DATABASE_URL: process.env.DATABASE_URL,
       BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
       NODE_ENV: process.env.NODE_ENV,

@@ -2,9 +2,11 @@
  * Root layout for Next.js App Router with context providers
  * T019: Updated to use Better Auth (managed via authClient, no provider needed)
  * T021a: Page transitions moved to template.tsx (Next.js recommended pattern)
+ * T004: ChatKit CDN script added (Feature: 009-chatkit-frontend)
  */
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { TaskProvider } from "@/contexts/TaskContext";
 import { TagProvider } from "@/contexts/TagContext";
@@ -25,6 +27,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        {/* T004: ChatKit Integration (Feature: 009-chatkit-frontend)
+            - OpenAI ChatKit SDK doesn't exist as a CDN product
+            - Instead: Building custom chat interface with React components
+            - Backend handles OpenAI API communication via /api/chatkit proxy
+            - No external SDK loading required
+        */}
+      </head>
       <body className={inter.className}>
         {/*
           T019: Better Auth integration
