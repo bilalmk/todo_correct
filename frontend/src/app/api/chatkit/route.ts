@@ -219,7 +219,7 @@ export async function POST(request: NextRequest) {
  * CORS preflight handler (if needed for external domains)
  * Currently not required as frontend and API proxy are same-origin
  */
-export async function OPTIONS(request: NextRequest) {
+export async function OPTIONS() {
   return new NextResponse(null, {
     status: 200,
     headers: {

@@ -141,6 +141,19 @@ function sanitizeValue(value: unknown, fieldName?: string): unknown {
 
   // Handle strings
   if (typeof value === 'string') {
+    // Check value patterns FIRST (before field name checks)
+    // This allows API keys to be masked even if field name suggests redaction
+
+    // Check if value looks like a JWT token
+    if (isJWTToken(value)) {
+      return REDACTED_TOKEN;
+    }
+
+    // Check if value looks like an API key - mask it
+    if (isAPIKey(value)) {
+      return maskAPIKey(value);
+    }
+
     // Check if field name indicates sensitive data
     if (fieldName) {
       if (isTokenField(fieldName)) {
@@ -149,16 +162,6 @@ function sanitizeValue(value: unknown, fieldName?: string): unknown {
       if (isPIIField(fieldName)) {
         return REDACTED_PII;
       }
-    }
-
-    // Check if value looks like a JWT token
-    if (isJWTToken(value)) {
-      return REDACTED_TOKEN;
-    }
-
-    // Check if value looks like an API key
-    if (isAPIKey(value)) {
-      return maskAPIKey(value);
     }
 
     // Truncate long strings (e.g., task content)

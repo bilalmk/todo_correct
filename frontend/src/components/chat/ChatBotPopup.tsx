@@ -156,9 +156,9 @@ export function ChatBotPopup({
             {open && (
               <motion.div
                 className="h-full"
-                initial={prefersReducedMotion ? false : { opacity: 0, y: 20 }}
-                animate={prefersReducedMotion ? false : { opacity: 1, y: 0 }}
-                exit={prefersReducedMotion ? false : { opacity: 0, y: 20 }}
+                initial={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
                 transition={contentTransition}
               >
                 {children}
@@ -172,9 +172,9 @@ export function ChatBotPopup({
       {open && (
         <motion.div
           className="fixed inset-0 bg-black/40 z-40"
-          initial={prefersReducedMotion ? false : { opacity: 0 }}
-          animate={prefersReducedMotion ? false : { opacity: 1 }}
-          exit={prefersReducedMotion ? false : { opacity: 0 }}
+          initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={prefersReducedMotion ? { opacity: 1 } : { opacity: 0 }}
           transition={backdropTransition}
           onClick={() => onOpenChange(false)}
           aria-hidden="true"

@@ -172,7 +172,7 @@ export function onTaskEvent(
  *
  * Used in ChatInterface when parsing tool.call.result SSE events
  *
- * @param toolName - MCP tool name (add_task, complete_task, etc.)
+ * @param toolName - MCP tool name (todo_add_task, todo_complete_task, etc.)
  * @param taskId - Task UUID from tool result
  * @param userId - Current user UUID
  * @param correlationId - Request correlation ID (optional)
@@ -182,7 +182,7 @@ export function onTaskEvent(
  * ```ts
  * // In ChatInterface after receiving tool.call.result
  * const detail = createTaskEventFromTool(
- *   'add_task',
+ *   'todo_add_task',
  *   result.task_id,
  *   currentUser.uuid,
  *   correlationId
@@ -197,11 +197,12 @@ export function createTaskEventFromTool(
   correlationId?: string
 ): TaskEventDetail {
   // Map MCP tool names to event types
+  // MCP tool names have 'todo_' prefix from MCP server
   const operationMap: Record<string, TaskEventType> = {
-    add_task: 'task.created',
-    update_task: 'task.updated',
-    complete_task: 'task.completed',
-    delete_task: 'task.deleted',
+    todo_add_task: 'task.created',
+    todo_update_task: 'task.updated',
+    todo_complete_task: 'task.completed',
+    todo_delete_task: 'task.deleted',
   };
 
   const operation = operationMap[toolName];

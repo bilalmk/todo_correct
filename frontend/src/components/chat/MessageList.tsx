@@ -26,6 +26,7 @@
 import { useEffect, useRef } from 'react';
 import { CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
 
 export interface ChatMessage {
   id: string;
@@ -129,7 +130,36 @@ export function MessageList({
             >
               {/* Message content */}
               <div className="whitespace-pre-wrap break-words text-sm">
-                {message.content}
+                {message.role === 'assistant' ? (
+                  <ReactMarkdown
+                    components={{
+                      // Style headings
+                      h1: ({ children }) => <h1 className="text-lg font-bold mb-2">{children}</h1>,
+                      h2: ({ children }) => <h2 className="text-base font-bold mb-2">{children}</h2>,
+                      h3: ({ children }) => <h3 className="text-sm font-bold mb-1">{children}</h3>,
+                      // Style paragraphs
+                      p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                      // Style bold text
+                      strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                      // Style lists
+                      ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
+                      ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
+                      li: ({ children }) => <li className="ml-2">{children}</li>,
+                      // Style code blocks
+                      code: ({ children }) => (
+                        <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-xs font-mono">
+                          {children}
+                        </code>
+                      ),
+                      // Style horizontal rules
+                      hr: () => <hr className="my-3 border-gray-300 dark:border-gray-600" />,
+                    }}
+                  >
+                    {message.content}
+                  </ReactMarkdown>
+                ) : (
+                  message.content
+                )}
               </div>
 
               {/* T050, T051c: Tool call indicators (success confirmation UI - PROMINENT) */}
@@ -219,7 +249,26 @@ export function MessageList({
             {streamingContent ? (
               <>
                 <div className="whitespace-pre-wrap break-words text-sm text-gray-900 dark:text-gray-100">
-                  {streamingContent}
+                  <ReactMarkdown
+                    components={{
+                      h1: ({ children }) => <h1 className="text-lg font-bold mb-2">{children}</h1>,
+                      h2: ({ children }) => <h2 className="text-base font-bold mb-2">{children}</h2>,
+                      h3: ({ children }) => <h3 className="text-sm font-bold mb-1">{children}</h3>,
+                      p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                      strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                      ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
+                      ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
+                      li: ({ children }) => <li className="ml-2">{children}</li>,
+                      code: ({ children }) => (
+                        <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-xs font-mono">
+                          {children}
+                        </code>
+                      ),
+                      hr: () => <hr className="my-3 border-gray-300 dark:border-gray-600" />,
+                    }}
+                  >
+                    {streamingContent}
+                  </ReactMarkdown>
                 </div>
                 {/* Typing cursor */}
                 <span className="inline-block w-1 h-4 ml-1 bg-gray-900 dark:bg-gray-100 animate-pulse" />

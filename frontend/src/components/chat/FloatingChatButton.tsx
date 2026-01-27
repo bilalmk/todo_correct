@@ -59,9 +59,9 @@ export function FloatingChatButton({ onClick, className = '' }: FloatingChatButt
       aria-label="Open chatbot assistant"
       role="button"
       tabIndex={0}
-      initial={prefersReducedMotion ? false : { scale: 0.8, opacity: 0 }}
-      animate={prefersReducedMotion ? false : { scale: 1, opacity: 1 }}
-      exit={prefersReducedMotion ? false : { scale: 0.8, opacity: 0 }}
+      initial={prefersReducedMotion ? { scale: 1, opacity: 1 } : { scale: 0.8, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      exit={prefersReducedMotion ? { scale: 1, opacity: 1 } : { scale: 0.8, opacity: 0 }}
       transition={
         prefersReducedMotion
           ? { duration: 0 }

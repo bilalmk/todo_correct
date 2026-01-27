@@ -82,7 +82,7 @@ export function NetworkError({ onRetry }: { onRetry: () => void }) {
  * T072: Countdown timer implementation
  */
 export function RateLimitError({
-  retryAfter,
+  retryAfter: _retryAfter,
   countdown
 }: {
   retryAfter: number;

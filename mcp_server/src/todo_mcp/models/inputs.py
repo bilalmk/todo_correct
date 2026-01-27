@@ -139,6 +139,19 @@ class AddTaskInput(BaseToolInput):
             return None
         return v
 
+    @field_validator("recurrence_pattern", "priority", mode="before")
+    @classmethod
+    def validate_optional_literal_fields(cls, v):
+        """
+        Convert empty strings to None for optional literal fields.
+
+        AI may send empty strings when it doesn't want to set a field.
+        Pydantic can't parse empty strings as Literal types, so convert to None.
+        """
+        if v == "" or v is None:
+            return None
+        return v
+
     @field_validator("recurrence_config")
     @classmethod
     def validate_recurrence_config(cls, v: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
@@ -311,6 +324,19 @@ class UpdateTaskInput(BaseToolInput):
 
         AI may send empty strings when it doesn't want to set a field.
         Pydantic can't parse empty strings as datetimes, so convert to None.
+        """
+        if v == "" or v is None:
+            return None
+        return v
+
+    @field_validator("recurrence_pattern", "priority", mode="before")
+    @classmethod
+    def validate_optional_literal_fields(cls, v):
+        """
+        Convert empty strings to None for optional literal fields.
+
+        AI may send empty strings when it doesn't want to set a field.
+        Pydantic can't parse empty strings as Literal types, so convert to None.
         """
         if v == "" or v is None:
             return None

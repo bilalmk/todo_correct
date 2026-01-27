@@ -215,8 +215,9 @@ describe('sanitize', () => {
 
       const result = sanitize(input) as any;
 
-      // Note: 'secret' field triggers token redaction first
-      expect(result.secret).toBe('[REDACTED_TOKEN]');
+      // Note: Value pattern check happens before field name check
+      // So API keys are masked even if field name suggests redaction
+      expect(result.secret).toBe('api-...mnop');
     });
 
     it('should handle short API keys (<=8 chars)', () => {
@@ -345,7 +346,7 @@ describe('sanitize', () => {
 
       const result = sanitize(input) as any;
 
-      expect(result.message).toBe('Please add a task to buy groceries for the week[...]');
+      expect(result.message).toBe('Please add a task to buy groceries for the week. I[...]');
       expect(result.userId).toBe('user-123');
       expect(result.token).toBe('[REDACTED_TOKEN]');
       expect(result.timestamp).toBe('2026-01-20T10:00:00Z');

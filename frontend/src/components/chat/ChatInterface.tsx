@@ -340,15 +340,63 @@ export function ChatInterface({ conversationId: initialConversationId }: ChatInt
           }
 
           try {
+            // DEBUG: Log raw SSE data
+            console.log('[ChatInterface] Raw SSE data:', data);
+
             const event = JSON.parse(data);
+
+            // DEBUG: Log parsed event
+            console.log('[ChatInterface] Parsed event type:', event.type, 'role:', event.role);
 
             // Handle different SSE event types
             if (event.type === 'thread.message.delta') {
-              // Incremental content update
+              // Incremental content update (streaming deltas)
               assistantContent += event.content || '';
 
               // T084: Use throttled update to prevent excessive re-renders
               updateStreamingContent(assistantContent);
+            } else if (event.type === 'message' && event.role === 'assistant') {
+              // Complete message from backend (non-streaming response)
+              assistantContent = event.content || '';
+              updateStreamingContent(assistantContent);
+
+              // Handle tool_results if present in the message event
+              if (event.tool_results && Array.isArray(event.tool_results)) {
+                for (const toolResult of event.tool_results) {
+                  const toolName = toolResult.tool;
+                  const result = toolResult.result;
+                  const taskId = result?.task_id || result?.id;
+                  const taskTitle = result?.title;
+
+                  // Track tool call in message metadata
+                  if (!assistantMetadata.toolCalls) {
+                    assistantMetadata.toolCalls = [];
+                  }
+
+                  assistantMetadata.toolCalls.push({
+                    toolName,
+                    status: result?.error ? 'error' : 'success',
+                    result: result,
+                    error: result?.error,
+                  });
+
+                  // Emit TaskEvent for dashboard sync
+                  if (!result?.error && taskId && ['add_task', 'update_task', 'complete_task', 'delete_task'].includes(toolName)) {
+                    try {
+                      const taskEvent = createTaskEventFromTool(
+                        `todo_${toolName}`,
+                        taskId.toString(),
+                        userId,
+                        correlationId
+                      );
+                      emitTaskEvent(taskEvent);
+                      console.log('[ChatInterface] TaskEvent emitted from message:', sanitize(taskEvent));
+                    } catch (err) {
+                      console.error('[ChatInterface] Failed to emit TaskEvent:', sanitize(err));
+                    }
+                  }
+                }
+              }
 
               // T078: Track time to first token (FR-020)
               if (firstTokenTime === null && assistantContent.length > 0) {
@@ -435,10 +483,14 @@ export function ChatInterface({ conversationId: initialConversationId }: ChatInt
               console.log('[ChatInterface] Message completed');
             } else if (event.type === 'error') {
               // Error event
-              throw new Error(event.message || 'Stream error');
+              console.error('[ChatInterface] Error event received:', event);
+              throw new Error(event.error?.message || event.message || 'Stream error');
+            } else {
+              // Unknown event type
+              console.log('[ChatInterface] Unknown event type:', event.type);
             }
           } catch (parseError) {
-            console.warn('[ChatInterface] Failed to parse SSE event:', parseError);
+            console.warn('[ChatInterface] Failed to parse SSE event:', parseError, 'Raw data:', data);
           }
         }
       }
